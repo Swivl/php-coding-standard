@@ -1,0 +1,30 @@
+{
+    "name": "swivl/php-coding-standard",
+    "type": "phpcodesniffer-standard",
+    "description": "Swivl Coding Standard for PHP_CodeSniffer",
+    "keywords": ["phpcs", "symfony", "Swivl", "coding standard"],
+    "homepage": "https://github.com/Swivl/php-coding-standard",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Vadim Borodavko",
+            "email": "vadim@swivl.com",
+            "homepage": "https://github.com/javer",
+            "role": "Lead Developer"
+        }
+    ],
+    "require": {
+        "php": ">=7.1",
+        "squizlabs/php_codesniffer": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Swivl\\Sniffs\\": "Swivl/Sniffs/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0.x-dev"
+        }
+    }
+}
