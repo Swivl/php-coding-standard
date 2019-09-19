@@ -8,7 +8,7 @@ Installation
 
 Install coding standard using composer:
 ```sh
-composer require swivl/php-coding-standard
+composer require --dev swivl/php-coding-standard
 ```
 
 Configuration
