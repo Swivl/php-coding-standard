@@ -905,10 +905,12 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         } else {
             if ($returnType !== null) {
                 if ($returnType === '$this') {
-                    $returnType = $this->getShortClassName($this->getMethodClassName($methodPtr));
+                    $returnType = sprintf('%s|self', $this->getShortClassName($this->getMethodClassName($methodPtr)));
+                    $returnTypeRegexp = sprintf('(?:%s)', $returnType);
+                } else {
+                    $returnTypeRegexp = str_replace("\\*", '[A-Za-z0-9]*', preg_quote($returnType, '/'));
                 }
 
-                $returnTypeRegexp = str_replace("\\*", '[A-Za-z0-9]*', preg_quote($returnType, '/'));
                 $returnTypeRegexp = $this->makeRootNamespaceOptionalTypeRegexp($returnTypeRegexp);
                 $returnType = str_replace('*', '', $returnType);
 
