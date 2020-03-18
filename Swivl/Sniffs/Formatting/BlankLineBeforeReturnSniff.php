@@ -47,7 +47,8 @@ class BlankLineBeforeReturnSniff implements Sniff
         $prevLineTokens = [];
 
         while ($current >= 0 && $tokens[$current]['line'] >= $previousLine) {
-            if ($tokens[$current]['line'] === $previousLine
+            if (
+                $tokens[$current]['line'] === $previousLine
                 && $tokens[$current]['type'] !== 'T_WHITESPACE'
                 && $tokens[$current]['type'] !== 'T_COMMENT'
             ) {
@@ -56,8 +57,10 @@ class BlankLineBeforeReturnSniff implements Sniff
             $current--;
         }
 
-        if (isset($prevLineTokens[0])
-            && ($prevLineTokens[0] === 'T_OPEN_CURLY_BRACKET' || $prevLineTokens[0] === 'T_COLON')) {
+        if (
+            isset($prevLineTokens[0])
+            && ($prevLineTokens[0] === 'T_OPEN_CURLY_BRACKET' || $prevLineTokens[0] === 'T_COLON')
+        ) {
             return;
         }
 
@@ -65,8 +68,10 @@ class BlankLineBeforeReturnSniff implements Sniff
             $prevDefaultTokenPtr = $phpcsFile->findPrevious(T_DEFAULT, $stackPtr);
             $prevCaseTokenPtr = $phpcsFile->findPrevious(T_CASE, $stackPtr);
 
-            if (($prevDefaultTokenPtr !== false && $tokens[$prevDefaultTokenPtr]['scope_closer'] === $stackPtr)
-                || ($prevCaseTokenPtr !== false && $tokens[$prevCaseTokenPtr]['scope_closer'] === $stackPtr)) {
+            if (
+                ($prevDefaultTokenPtr !== false && $tokens[$prevDefaultTokenPtr]['scope_closer'] === $stackPtr)
+                || ($prevCaseTokenPtr !== false && $tokens[$prevCaseTokenPtr]['scope_closer'] === $stackPtr)
+            ) {
                 // return as break of switch case or default
                 return;
             }
