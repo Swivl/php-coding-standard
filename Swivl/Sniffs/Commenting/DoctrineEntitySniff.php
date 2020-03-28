@@ -13,6 +13,8 @@ use PHP_CodeSniffer\Util\Common;
  */
 class DoctrineEntitySniff extends AbstractVariableSniff
 {
+    private const NULLABLE_ANNOTATION = '|null';
+
     protected const SCALAR_TYPES = [
         'bool' => 'boolean',
         'int' => 'integer',
@@ -649,6 +651,10 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             $columnType = $attributes['type'];
 
             if ($expectedType = $this->suggestType($columnType)) {
+                if ($attributes['nullable'] ?? null) {
+                    $expectedType .= '|null';
+                }
+
                 if (!$this->varType) {
                     $error = 'Variable type required for column; expected "%s"';
                     $data = [$expectedType];
@@ -906,6 +912,12 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                 if ($returnType === '$this') {
                     $returnType = sprintf('%s|self', $this->getShortClassName($this->getMethodClassName($methodPtr)));
                     $returnTypeRegexp = sprintf('(?:%s)', $returnType);
+                } elseif ($returnType !== $this->varType) {
+                    $returnTypeRegexp = str_replace(
+                        "\\*",
+                        '[A-Za-z0-9]*',
+                        sprintf('(?:%s|%s)', preg_quote($returnType, '/'), preg_quote($this->varType, '/'))
+                    );
                 } else {
                     $returnTypeRegexp = str_replace("\\*", '[A-Za-z0-9]*', preg_quote($returnType, '/'));
                 }
@@ -925,7 +937,12 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                 if ($comment = $this->getDocComment($methodPtr)) {
                     if (!preg_match('/@return\s+' . $returnTypeRegexp . '(\s+|\|)/', $comment)) {
                         $error = '%s %s "%s" must have return type "%s" in doc-comment';
-                        $data = [$ownerType, $methodType, $methodName, $returnType];
+                        $data = [
+                            $ownerType,
+                            $methodType,
+                            $methodName,
+                            $returnType === $this->varType ? $returnType : implode(', ', [$returnType, $this->varType])
+                        ];
                         $this->reportError($error, $methodPtr, $errorPrefix . 'ReturnType', $data);
                     }
                 }
@@ -969,7 +986,8 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                             $this->reportError($error, $methodPtr, $errorPrefix . 'ArgumentType', $data);
                         }
 
-                        $nullPtr = $this->phpcsFile->findNext(T_NULL, $argPtr, $argsClosePtr);
+                        $nullPtr = $this->phpcsFile->findNext(T_NULL, $argPtr, $argsClosePtr)
+                            || $this->phpcsFile->findNext(T_NULLABLE, $argsOpenPtr, $argPtr);
                         if ($nullPtr === false && $argumentNullable) {
                             $error = '%s %s "%s" argument must be nullable';
                             $data = [$ownerType, $methodType, $methodName];
@@ -982,7 +1000,17 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     }
 
                     if ($comment = $this->getDocComment($methodPtr)) {
-                        $argTypeRegexp = $this->makeRootNamespaceOptionalTypeRegexp(preg_quote($argumentType, '/'));
+                        if ($argumentNullable && $this->hasNullableAnnotation($argumentType)) {
+                            $argTypeRegexp = sprintf(
+                                '(?:%s|%s)',
+                                $this->makeRootNamespaceOptionalTypeRegexp(preg_quote($argumentType, '/')),
+                                $this->makeRootNamespaceOptionalTypeRegexp(
+                                    preg_quote($this->removeNullableAnnotation($argumentType), '/')
+                                )
+                            );
+                        } else {
+                            $argTypeRegexp = $this->makeRootNamespaceOptionalTypeRegexp(preg_quote($argumentType, '/'));
+                        }
 
                         if (
                             !preg_match('/@param\s+' . $argTypeRegexp . '\s+/', $comment)
@@ -992,7 +1020,15 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                             )
                         ) {
                             $error = '%s %s "%s" must have param "%s" with type "%s" in doc-comment';
-                            $data = [$ownerType, $methodType, $methodName, $argumentName, $argumentType];
+                            $data = [
+                                $ownerType,
+                                $methodType,
+                                $methodName,
+                                $argumentName,
+                                ($argumentNullable && $this->hasNullableAnnotation($argumentType))
+                                    ? implode(', ', [$argumentType, $this->removeNullableAnnotation($argumentType)])
+                                    : $argumentType
+                            ];
                             $this->reportError($error, $methodPtr, $errorPrefix . 'ArgumentDocType', $data);
                         }
                     }
@@ -1256,7 +1292,14 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         $normExpectedType = ltrim($expectedType, "\\");
         $normActualType = ltrim($actualType, "\\");
 
-        return $normExpectedType === $normActualType || $this->isSameScalarTypes($normExpectedType, $normActualType);
+        $valid = $normExpectedType === $normActualType || $this->isSameScalarTypes($normExpectedType, $normActualType);
+
+        if ($valid || !$this->hasNullableAnnotation($normExpectedType)) {
+            return $valid;
+        }
+
+
+        return $this->isSameTypes($this->removeNullableAnnotation($normExpectedType), $actualType);
     }
 
     /**
@@ -1269,5 +1312,41 @@ class DoctrineEntitySniff extends AbstractVariableSniff
     private function makeRootNamespaceOptionalTypeRegexp(string $typeRegexp): string
     {
         return preg_replace('/^(\\\\\\\\)(\w)/', '$1?$2', $typeRegexp);
+    }
+
+    /**
+     * Check if type string has nullability annotation.
+     *
+     * ```
+     * string|null
+     * ```
+     *
+     * @param string $type
+     *
+     * @return boolean
+     */
+    private function hasNullableAnnotation(string $type): bool
+    {
+        $nullPos = strrpos($type, self::NULLABLE_ANNOTATION);
+        $nullLength = strlen(self::NULLABLE_ANNOTATION);
+        $notNullLength = strlen($type) - $nullLength;
+
+        return $nullPos === $notNullLength;
+    }
+
+    /**
+     * Remove nullability annotation from type string if exist.
+     *
+     * @param string $type
+     *
+     * @return string
+     */
+    private function removeNullableAnnotation(string $type): string
+    {
+        if (!$this->hasNullableAnnotation($type)) {
+            return $type;
+        }
+
+        return substr($type, 0, strlen($type) - strlen(self::NULLABLE_ANNOTATION));
     }
 }
