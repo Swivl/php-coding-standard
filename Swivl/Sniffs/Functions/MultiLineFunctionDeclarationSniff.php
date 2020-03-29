@@ -94,10 +94,12 @@ class MultiLineFunctionDeclarationSniff extends FunctionDeclarationSniff
         $lastLine = $tokens[$openBracket]['line'];
         for ($i = ($openBracket + 1); $i < $closeBracket; $i++) {
             if ($tokens[$i]['line'] !== $lastLine) {
-                if ($i === $tokens[$stackPtr]['parenthesis_closer']
-                    || ($tokens[$i]['code'] === T_WHITESPACE
-                    && (($i + 1) === $closeBracket
-                    || ($i + 1) === $tokens[$stackPtr]['parenthesis_closer']))
+                if (
+                    $i === $tokens[$stackPtr]['parenthesis_closer']
+                    || (
+                        $tokens[$i]['code'] === T_WHITESPACE
+                        && (($i + 1) === $closeBracket || ($i + 1) === $tokens[$stackPtr]['parenthesis_closer'])
+                    )
                 ) {
                     // Closing braces need to be indented to the same level
                     // as the function.

@@ -82,11 +82,16 @@ class VariableCommentSniff extends AbstractVariableSniff
 
         $blockCommentStart = $commentStart;
 
-        while ($blockCommentStart > 0 && (
-            ($tokens[$blockCommentStart - 1]['code'] === T_COMMENT) ||
-            ($tokens[$blockCommentStart - 1]['code'] === T_WHITESPACE
-                && $tokens[$blockCommentStart - 1]['line'] === $tokens[$blockCommentStart]['line'])
-            )) {
+        while (
+            $blockCommentStart > 0
+            && (
+                ($tokens[$blockCommentStart - 1]['code'] === T_COMMENT)
+                || (
+                    $tokens[$blockCommentStart - 1]['code'] === T_WHITESPACE
+                    && $tokens[$blockCommentStart - 1]['line'] === $tokens[$blockCommentStart]['line']
+                )
+            )
+        ) {
             $blockCommentStart--;
         }
 

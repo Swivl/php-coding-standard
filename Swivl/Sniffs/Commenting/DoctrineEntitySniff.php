@@ -342,7 +342,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         $text = trim($text);
 
         while ($text !== '') {
-            if (substr($text, 0, 1) === '{') {
+            if (strpos($text, '{') === 0) {
                 if ($endPos = strpos($text, '}')) {
                     $text = substr($text, $endPos + 1);
 
@@ -820,9 +820,8 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         }
 
         $commentStart = $this->phpcsFile->findPrevious(T_DOC_COMMENT_OPEN_TAG, $commentEnd - 1) + 1;
-        $commentString = $this->phpcsFile->getTokensAsString($commentStart, ($commentEnd - $commentStart + 1));
 
-        return $commentString;
+        return $this->phpcsFile->getTokensAsString($commentStart, ($commentEnd - $commentStart + 1));
     }
 
     /**
@@ -887,7 +886,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
 
         if ($methodPtr === false && strpos($methodName, 'get') === 0) {
             $shortMethodName = lcfirst(substr($methodName, 3));
-            if (substr($shortMethodName, 0, 2) !== 'is') {
+            if (strpos($shortMethodName, 'is') !== 0) {
                 $shortMethodName = 'is' . ucfirst($shortMethodName);
             }
             $methodPtr = array_search($shortMethodName, $methods);
@@ -905,10 +904,12 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         } else {
             if ($returnType !== null) {
                 if ($returnType === '$this') {
-                    $returnType = $this->getShortClassName($this->getMethodClassName($methodPtr));
+                    $returnType = sprintf('%s|self', $this->getShortClassName($this->getMethodClassName($methodPtr)));
+                    $returnTypeRegexp = sprintf('(?:%s)', $returnType);
+                } else {
+                    $returnTypeRegexp = str_replace("\\*", '[A-Za-z0-9]*', preg_quote($returnType, '/'));
                 }
 
-                $returnTypeRegexp = str_replace("\\*", '[A-Za-z0-9]*', preg_quote($returnType, '/'));
                 $returnTypeRegexp = $this->makeRootNamespaceOptionalTypeRegexp($returnTypeRegexp);
                 $returnType = str_replace('*', '', $returnType);
 
@@ -959,8 +960,10 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     }
 
                     if ($argType !== null) {
-                        if (!$this->isSameTypes($argumentType, $argType)
-                            && !$this->isTypeHintMappedToConcreteType($argumentType, $argType)) {
+                        if (
+                            !$this->isSameTypes($argumentType, $argType)
+                            && !$this->isTypeHintMappedToConcreteType($argumentType, $argType)
+                        ) {
                             $error = '%s %s "%s" argument must have typehint "%s", instead of typehint "%s"';
                             $data = [$ownerType, $methodType, $methodName, $argumentType, $argType];
                             $this->reportError($error, $methodPtr, $errorPrefix . 'ArgumentType', $data);
@@ -981,8 +984,10 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     if ($comment = $this->getDocComment($methodPtr)) {
                         $argTypeRegexp = $this->makeRootNamespaceOptionalTypeRegexp(preg_quote($argumentType, '/'));
 
-                        if (!preg_match('/@param\s+' . $argTypeRegexp . '\s+/', $comment)
-                            && ($this->isTypeHintMappedToConcreteType($argumentType, $argType)
+                        if (
+                            !preg_match('/@param\s+' . $argTypeRegexp . '\s+/', $comment)
+                            && (
+                                $this->isTypeHintMappedToConcreteType($argumentType, $argType)
                                 && !preg_match('/@param\s+' . preg_quote($argType, '/') . '\s+/', $comment)
                             )
                         ) {
