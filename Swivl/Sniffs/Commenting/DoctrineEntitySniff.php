@@ -934,16 +934,16 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             if ($argumentName !== null) {
                 $argsOpenPtr = $tokens[$methodPtr]['parenthesis_opener'];
                 $argsClosePtr = $tokens[$methodPtr]['parenthesis_closer'];
-                $argPtr = $this->phpcsFile->findNext([T_NS_SEPARATOR, T_STRING, T_VARIABLE], $argsOpenPtr, $argsClosePtr);
+                $argPtr = $this->phpcsFile->findNext([T_NS_SEPARATOR, T_NULLABLE, T_STRING, T_VARIABLE], $argsOpenPtr, $argsClosePtr);
                 if ($argPtr === false) {
                     $error = '%s %s "%s" must have at least one argument';
                     $data = [$ownerType, $methodType, $methodName];
                     $this->reportError($error, $methodPtr, $errorPrefix . 'ArgumentRequired', $data);
                 } else {
                     $argType = null;
-                    if (in_array($tokens[$argPtr]['code'], [T_STRING, T_NS_SEPARATOR], true)) {
+                    if (in_array($tokens[$argPtr]['code'], [T_NULLABLE, T_STRING, T_NS_SEPARATOR], true)) {
                         $argTypeStartPtr = $argPtr;
-                        $argTypeEndPtr = $this->phpcsFile->findNext([T_STRING, T_NS_SEPARATOR], $argPtr, $argsClosePtr, true);
+                        $argTypeEndPtr = $this->phpcsFile->findNext([T_NULLABLE, T_STRING, T_NS_SEPARATOR], $argPtr, $argsClosePtr, true);
                         if ($argTypeEndPtr !== false) {
                             $argType = $this->phpcsFile->getTokensAsString($argTypeStartPtr, $argTypeEndPtr - $argTypeStartPtr);
                             $argPtr = $this->phpcsFile->findNext(T_VARIABLE, $argTypeEndPtr + 1, $argsClosePtr);
@@ -960,6 +960,12 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     }
 
                     if ($argType !== null) {
+                        $argNullable = false;
+                        if (strpos($argType, '?') === 0) {
+                            $argNullable = true;
+                            $argType = substr($argType, 1);
+                        }
+
                         if (
                             !$this->isSameTypes($argumentType, $argType)
                             && !$this->isTypeHintMappedToConcreteType($argumentType, $argType)
@@ -969,12 +975,13 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                             $this->reportError($error, $methodPtr, $errorPrefix . 'ArgumentType', $data);
                         }
 
-                        $nullPtr = $this->phpcsFile->findNext(T_NULL, $argPtr, $argsClosePtr);
-                        if ($nullPtr === false && $argumentNullable) {
+                        $nullPtr = $this->phpcsFile->findNext([T_NULL, T_COMMA], $argPtr, $argsClosePtr);
+                        $isNullable = ($nullPtr && $tokens[$nullPtr]['code'] === T_NULL) || $argNullable;
+                        if ($isNullable === false && $argumentNullable) {
                             $error = '%s %s "%s" argument must be nullable';
                             $data = [$ownerType, $methodType, $methodName];
                             $this->reportError($error, $methodPtr, $errorPrefix . 'ArgumentNullable', $data);
-                        } elseif ($nullPtr !== false && !$argumentNullable) {
+                        } elseif ($isNullable !== false && !$argumentNullable) {
                             $error = '%s %s "%s" argument must be not-nullable';
                             $data = [$ownerType, $methodType, $methodName];
                             $this->reportError($error, $methodPtr, $errorPrefix . 'ArgumentNotNullable', $data);
