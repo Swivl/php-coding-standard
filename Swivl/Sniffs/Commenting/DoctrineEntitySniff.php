@@ -13,6 +13,9 @@ use PHP_CodeSniffer\Util\Common;
  */
 class DoctrineEntitySniff extends AbstractVariableSniff
 {
+    private const CLASS_SUFFIX = '::class';
+    private const CLASS_SUFFIX_LENGTH = 7;
+
     protected const SCALAR_TYPES = [
         'bool' => 'boolean',
         'int' => 'integer',
@@ -67,7 +70,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         'Id' => [],
         'JoinColumn' => [
             'requires' => [['ManyToOne', 'OneToOne']],
-            'required' => ['name', 'referencedColumnName'],
             'attributes' => [
                 'name' => 'string',
                 'referencedColumnName' => 'string',
@@ -86,7 +88,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             ],
         ],
         'ManyToOne' => [
-            'requires' => ['JoinColumn'],
             'required' => ['targetEntity'],
             'attributes' => [
                 'targetEntity' => 'class',
@@ -96,7 +97,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             ],
         ],
         'ManyToMany' => [
-            'requires' => ['JoinTable'],
             'required' => ['targetEntity'],
             'attributes' => [
                 'targetEntity' => 'class',
@@ -392,9 +392,10 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     $valueEndPos = strlen($text) - 1;
                 }
                 $value = substr($text, $valuePos, $valueEndPos - $valuePos + 1);
+
                 if (in_array(strtolower($value), ['false', 'true'])) {
                     $value = strtolower($value) === 'true';
-                } else {
+                } elseif (is_numeric($value)) {
                     $value = (int) $value;
                 }
             }
@@ -595,7 +596,10 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     break;
 
                 case 'class':
-                    $valid = (ucfirst($value) === $value) && (strpos($value, "\\") !== false);
+                    $valid = (ucfirst($value) === $value) && (
+                            (strpos($value, "\\") !== false)
+                            || strpos($value, self::CLASS_SUFFIX, -self::CLASS_SUFFIX_LENGTH)
+                        );
                     break;
 
                 default:
@@ -1085,6 +1089,13 @@ class DoctrineEntitySniff extends AbstractVariableSniff
     {
         if (strpos($className, "\\") !== false) {
             $className = ltrim(strrchr($className, "\\"), "\\");
+        }
+
+        if (
+            strlen($className) > self::CLASS_SUFFIX_LENGTH
+            && strpos($className, self::CLASS_SUFFIX, -self::CLASS_SUFFIX_LENGTH)
+        ) {
+            $className = substr($className, 0, -self::CLASS_SUFFIX_LENGTH);
         }
 
         return $className;
