@@ -5,6 +5,7 @@ namespace Swivl\Sniffs\Commenting;
 use PHP_CodeSniffer\Files\File;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Commenting\DocCommentSniff;
 use PHP_CodeSniffer\Standards\Squiz\Sniffs\Commenting\FunctionCommentSniff as SquizFunctionCommentSniff;
+use PHP_CodeSniffer\Util\Tokens;
 
 /**
  * FunctionCommentSniff
@@ -13,10 +14,102 @@ use PHP_CodeSniffer\Standards\Squiz\Sniffs\Commenting\FunctionCommentSniff as Sq
  */
 class FunctionCommentSniff extends SquizFunctionCommentSniff
 {
+    private const REQUIRED_PHPDOC_MAP = [
+        'array' => true,
+        'iterable' => true,
+        'Collection' => true,
+        'ArrayCollection' => true,
+        'IteratorAggregate' => true,
+        'Iterator' => true,
+        'Traversable' => true,
+    ];
+
+    private const REQUIRED_PHPDOC_ALWAYS = 'always';
+    private const REQUIRED_PHPDOC_BY_MAP = 'map';
+    private const REQUIRED_PHPDOC_NEVER = 'never';
+
+    public $requiredPhpdoc = self::REQUIRED_PHPDOC_BY_MAP;
+
     /**
      * @var DocCommentSniff
      */
     private $docCommentSniff;
+
+    /**
+     * This method is the copy of the parent method,
+     * with the only difference that the condition in which the method "hasTypeWithRequiredComment" is called was added
+     *
+     * {@inheritDoc}
+     */
+    public function process(File $phpcsFile, $stackPtr)
+    {
+        $tokens = $phpcsFile->getTokens();
+        $find = Tokens::$methodPrefixes;
+        $find[] = T_WHITESPACE;
+
+        $commentEnd = $phpcsFile->findPrevious($find, ($stackPtr - 1), null, true);
+        if ($tokens[$commentEnd]['code'] === T_COMMENT) {
+            // Inline comments might just be closing comments for
+            // control structures or functions instead of function comments
+            // using the wrong comment type. If there is other code on the line,
+            // assume they relate to that code.
+            $prev = $phpcsFile->findPrevious($find, ($commentEnd - 1), null, true);
+            if ($prev !== false && $tokens[$prev]['line'] === $tokens[$commentEnd]['line']) {
+                $commentEnd = $prev;
+            }
+        }
+
+        if ($tokens[$commentEnd]['code'] !== T_DOC_COMMENT_CLOSE_TAG && $tokens[$commentEnd]['code'] !== T_COMMENT) {
+            if (
+                $this->requiredPhpdoc === self::REQUIRED_PHPDOC_ALWAYS
+                || (
+                    $this->requiredPhpdoc === self::REQUIRED_PHPDOC_BY_MAP
+                    && $this->hasTypeWithRequiredComment($phpcsFile, $stackPtr)
+                )
+            ) {
+                $function = $phpcsFile->getDeclarationName($stackPtr);
+                $phpcsFile->addError(
+                    'Missing doc comment for function %s()',
+                    $stackPtr,
+                    'Missing',
+                    [$function]
+                );
+            }
+
+            $phpcsFile->recordMetric($stackPtr, 'Function has doc comment', 'no');
+
+            return;
+        }
+
+        $phpcsFile->recordMetric($stackPtr, 'Function has doc comment', 'yes');
+
+        if ($tokens[$commentEnd]['code'] === T_COMMENT) {
+            $phpcsFile->addError('You must use "/**" style comments for a function comment', $stackPtr, 'WrongStyle');
+
+            return;
+        }
+
+        if ($tokens[$commentEnd]['line'] !== ($tokens[$stackPtr]['line'] - 1)) {
+            $error = 'There must be no blank lines after the function comment';
+            $phpcsFile->addError($error, $commentEnd, 'SpacingAfter');
+        }
+
+        $commentStart = $tokens[$commentEnd]['comment_opener'];
+        foreach ($tokens[$commentStart]['comment_tags'] as $tag) {
+            if ($tokens[$tag]['content'] === '@see') {
+                // Make sure the tag isn't empty.
+                $string = $phpcsFile->findNext(T_DOC_COMMENT_STRING, $tag, $commentEnd);
+                if ($string === false || $tokens[$string]['line'] !== $tokens[$tag]['line']) {
+                    $error = 'Content missing for @see tag in function comment';
+                    $phpcsFile->addError($error, $tag, 'EmptySees');
+                }
+            }
+        }
+
+        $this->processReturn($phpcsFile, $stackPtr, $commentStart);
+        $this->processThrows($phpcsFile, $stackPtr, $commentStart);
+        $this->processParams($phpcsFile, $stackPtr, $commentStart);
+    }
 
     /**
      * Process the return comment of this function comment.
@@ -206,5 +299,35 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
         }
 
         $this->docCommentSniff->process($phpcsFile, $commentStart);
+    }
+
+    /**
+     * Returns true if any type hint has the type which needs specification in phpdoc or type hint is absent.
+     *
+     * @param File    $phpcsFile
+     * @param integer $stackPtr
+     *
+     * @return boolean
+     */
+    private function hasTypeWithRequiredComment(File $phpcsFile, int $stackPtr): bool
+    {
+        $methodProperties = $phpcsFile->getMethodProperties($stackPtr);
+        $returnType = ltrim($methodProperties['return_type'], '\\');
+
+        if (!$returnType || isset(self::REQUIRED_PHPDOC_MAP[$returnType])) {
+            return true;
+        }
+
+        $methodParameters = $phpcsFile->getMethodParameters($stackPtr);
+
+        foreach ($methodParameters as $pos => $param) {
+            $typeHint = ltrim($param['type_hint'], '\\');
+
+            if (!$typeHint || isset(self::REQUIRED_PHPDOC_MAP[$typeHint])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

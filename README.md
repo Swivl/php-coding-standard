@@ -1,7 +1,7 @@
 Swivl Coding Standard for PHP_CodeSniffer
 =========================================
 
-This coding standard is much more strict version of [PSR-12](https://www.php-fig.org/psr/psr-12/). 
+This coding standard is much more strict version of [PSR-12](https://www.php-fig.org/psr/psr-12/).
 
 Installation
 ------------
@@ -66,7 +66,8 @@ bin/phpcbf
 Advanced configuration
 ----------------------
 
-1. `Swivl.Commenting.DoctrineEntity` sniff provides the following options:
+#### `Swivl.Commenting.DoctrineEntity`
+This sniff provides the following options:
 
 ```xml
 <rule ref="Swivl.Commenting.DoctrineEntity">
@@ -78,8 +79,28 @@ Advanced configuration
     </properties>
 </rule>
 ```
-        
-* `concreteTypeToBaseTypeMap` - when column is mapped to concrete type FeedItemComment, but modification 
-methods are type hinted with base class CommentInterface
+* `concreteTypeToBaseTypeMap` - when column is mapped to concrete type FeedItemComment, but modification methods are type hinted with base class CommentInterface
 * `useDynamicalCalculationForEnumColumnType` - when enum is mapped to some PHP type.
-For example, `type="auth_enum_type"` is mapped to PHP AuthType.
+  For example, `type="auth_enum_type"` is mapped to PHP AuthType.
+
+#### `Swivl.Commenting.FunctionComment`
+This sniff provides the option:
+```xml
+<rule ref="Swivl.Commenting.FunctionComment">
+    <properties>
+        <property name="requiredPhpdoc" value="always"/>
+    </properties>
+</rule>
+```
+* `requiredPhpdoc` - configures when PHPDoc is required for a method. Possible values:
+    * `always` - PHPDoc is required for all methods.
+    * `map` - PHPDoc is required for a method if at least 1 type hint or return type is in the list which is defined in the sniff in FunctionCommentSniff::REQUIRED_PHPDOC_MAP. It is the default behavior.
+    * `never` - PHPDoc isn't required for all methods.
+
+Dependencies update
+-------------------
+Some sniffs from Swivl Coding Standard override sniffs from libraries which are in dependencies list.
+The following sniffs should be synchronized with the original code during dependencies update:
+* [Swivl\Sniffs\Commenting\FunctionCommentSniff](Swivl/Sniffs/Commenting/FunctionCommentSniff.php)
+* [Swivl\Sniffs\Functions\MultiLineFunctionDeclarationSniff](Swivl/Sniffs/Functions/MultiLineFunctionDeclarationSniff.php)
+* [Swivl\Sniffs\Namespaces\NamespaceDeclarationSniff](Swivl/Sniffs/Namespaces/NamespaceDeclarationSniff.php)
