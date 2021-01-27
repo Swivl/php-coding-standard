@@ -28,6 +28,11 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
     private const REQUIRED_PHPDOC_BY_MAP = 'map';
     private const REQUIRED_PHPDOC_NEVER = 'never';
 
+    private const METHOD_NAMES_WITHOUT_RETURN_TYPE_MAP = [
+        '__construct' => true,
+        '__destruct' => true,
+    ];
+
     public $requiredPhpdoc = self::REQUIRED_PHPDOC_BY_MAP;
 
     /**
@@ -314,7 +319,10 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
         $methodProperties = $phpcsFile->getMethodProperties($stackPtr);
         $returnType = ltrim($methodProperties['return_type'], '\\');
 
-        if (!$returnType || isset(self::REQUIRED_PHPDOC_MAP[$returnType])) {
+        if (
+            (!$returnType || isset(self::REQUIRED_PHPDOC_MAP[$returnType]))
+            && !isset(self::METHOD_NAMES_WITHOUT_RETURN_TYPE_MAP[$phpcsFile->getDeclarationName($stackPtr)])
+        ) {
             return true;
         }
 
