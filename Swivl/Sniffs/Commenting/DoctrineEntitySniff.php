@@ -272,7 +272,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             if (preg_match('/^@var /', $line)) {
                 $definition = preg_split('/\s+/', $line);
                 if (count($definition) > 1) {
-                    $this->varType = $definition[1];
+                    $this->varType = strtok($definition[1], '|');
                 }
             }
         }
