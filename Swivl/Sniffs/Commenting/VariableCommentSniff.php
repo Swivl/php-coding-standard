@@ -4,6 +4,7 @@ namespace Swivl\Sniffs\Commenting;
 
 use PHP_CodeSniffer\Files\File;
 use PHP_CodeSniffer\Sniffs\AbstractVariableSniff;
+use Swivl\Helpers\TypeHelper;
 
 /**
  * VariableCommentSniff
@@ -14,6 +15,13 @@ use PHP_CodeSniffer\Sniffs\AbstractVariableSniff;
  */
 class VariableCommentSniff extends AbstractVariableSniff
 {
+    public function __construct()
+    {
+        parent::__construct();
+
+        TypeHelper::allowShortScalarTypes();
+    }
+
     /**
      * Called to process class member vars.
      *

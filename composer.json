@@ -19,7 +19,8 @@
     },
     "autoload": {
         "psr-4": {
-            "Swivl\\Sniffs\\": "Swivl/Sniffs/"
+            "Swivl\\Sniffs\\": "Swivl/Sniffs/",
+            "Swivl\\Helpers\\": "Swivl/Helpers/"
         }
     },
     "extra": {

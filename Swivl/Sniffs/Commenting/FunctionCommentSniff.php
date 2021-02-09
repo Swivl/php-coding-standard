@@ -6,6 +6,7 @@ use PHP_CodeSniffer\Files\File;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Commenting\DocCommentSniff;
 use PHP_CodeSniffer\Standards\Squiz\Sniffs\Commenting\FunctionCommentSniff as SquizFunctionCommentSniff;
 use PHP_CodeSniffer\Util\Tokens;
+use Swivl\Helpers\TypeHelper;
 
 /**
  * FunctionCommentSniff
@@ -14,19 +15,8 @@ use PHP_CodeSniffer\Util\Tokens;
  */
 class FunctionCommentSniff extends SquizFunctionCommentSniff
 {
-    private const REQUIRED_PHPDOC_MAP = [
-        'array' => true,
-        'iterable' => true,
-        'Collection' => true,
-        'ArrayCollection' => true,
-        'IteratorAggregate' => true,
-        'Iterator' => true,
-        'Traversable' => true,
-    ];
-
     private const REQUIRED_PHPDOC_ALWAYS = 'always';
     private const REQUIRED_PHPDOC_BY_MAP = 'map';
-    private const REQUIRED_PHPDOC_NEVER = 'never';
 
     private const METHOD_NAMES_WITHOUT_RETURN_TYPE_MAP = [
         '__construct' => true,
@@ -39,6 +29,11 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
      * @var DocCommentSniff
      */
     private $docCommentSniff;
+
+    public function __construct()
+    {
+        TypeHelper::allowShortScalarTypes();
+    }
 
     /**
      * This method is the copy of the parent method,
@@ -317,10 +312,10 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
     private function hasTypeWithRequiredComment(File $phpcsFile, int $stackPtr): bool
     {
         $methodProperties = $phpcsFile->getMethodProperties($stackPtr);
-        $returnType = ltrim($methodProperties['return_type'], '\\');
+        $returnType = $methodProperties['return_type'];
 
         if (
-            (!$returnType || isset(self::REQUIRED_PHPDOC_MAP[$returnType]))
+            (!$returnType || TypeHelper::isTypeTraversable($returnType))
             && !isset(self::METHOD_NAMES_WITHOUT_RETURN_TYPE_MAP[$phpcsFile->getDeclarationName($stackPtr)])
         ) {
             return true;
@@ -329,9 +324,9 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
         $methodParameters = $phpcsFile->getMethodParameters($stackPtr);
 
         foreach ($methodParameters as $pos => $param) {
-            $typeHint = ltrim($param['type_hint'], '\\');
+            $paramType = $param['type_hint'];
 
-            if (!$typeHint || isset(self::REQUIRED_PHPDOC_MAP[$typeHint])) {
+            if (!$paramType || TypeHelper::isTypeTraversable($paramType)) {
                 return true;
             }
         }
