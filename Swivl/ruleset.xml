@@ -54,10 +54,12 @@
         <severity>0</severity>
     </rule>
 
+    <rule ref="Generic.Files.EndFileNewline"/>
     <rule ref="Generic.Files.InlineHTML"/>
     <rule ref="Generic.Files.LineLength.TooLong"/>
     <rule ref="Generic.Files.OneClassPerFile"/>
     <rule ref="Generic.Files.OneInterfacePerFile"/>
+    <rule ref="Generic.Files.OneObjectStructurePerFile"/>
     <rule ref="Generic.Files.OneTraitPerFile"/>
 
     <rule ref="Generic.Formatting.SpaceAfterCast"/>
@@ -76,13 +78,17 @@
     </rule>
 
     <rule ref="Generic.NamingConventions.ConstructorName"/>
+    <rule ref="Generic.NamingConventions.UpperCaseConstantName"/>
 
     <rule ref="Generic.PHP.BacktickOperator"/>
     <rule ref="Generic.PHP.CharacterBeforePHPOpeningTag"/>
     <rule ref="Generic.PHP.DeprecatedFunctions"/>
     <rule ref="Generic.PHP.DisallowAlternativePHPTags"/>
+    <rule ref="Generic.PHP.DisallowRequestSuperglobal"/>
     <rule ref="Generic.PHP.DiscourageGoto"/>
     <rule ref="Generic.PHP.ForbiddenFunctions"/>
+    <rule ref="Generic.PHP.LowerCaseKeyword"/>
+    <rule ref="Generic.PHP.LowerCaseType"/>
     <rule ref="Generic.PHP.NoSilencedErrors"/>
 
     <rule ref="Generic.Strings.UnnecessaryStringConcat">
@@ -96,7 +102,10 @@
             <property name="ignoreNewlines" value="true"/>
         </properties>
     </rule>
+    <rule ref="Generic.WhiteSpace.DisallowTabIndent"/>
+    <rule ref="Generic.WhiteSpace.IncrementDecrementSpacing"/>
     <rule ref="Generic.WhiteSpace.LanguageConstructSpacing"/>
+    <rule ref="Generic.WhiteSpace.SpreadOperatorSpacingAfter"/>
 
     <rule ref="PEAR.Formatting.MultiLineAssignment"/>
     <rule ref="PEAR.Formatting.MultiLineAssignment.EqualSignLine">
