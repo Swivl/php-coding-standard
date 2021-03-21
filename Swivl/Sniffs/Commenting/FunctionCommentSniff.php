@@ -21,6 +21,7 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
     private const METHOD_NAMES_WITHOUT_RETURN_TYPE_MAP = [
         '__construct' => true,
         '__destruct' => true,
+        '__clone' => true,
     ];
 
     public $requiredPhpdoc = self::REQUIRED_PHPDOC_BY_MAP;
