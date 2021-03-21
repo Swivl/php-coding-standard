@@ -156,10 +156,10 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         'bigint' => 'integer',
         'boolean' => 'boolean',
         'decimal' => 'float',
-        'date' => '\DateTime',
-        'time' => '\DateTime',
-        'datetime' => '\DateTime',
-        'datetimetz' => '\DateTime',
+        'date' => 'DateTime',
+        'time' => 'DateTime',
+        'datetime' => 'DateTime',
+        'datetimetz' => 'DateTime',
         'text' => 'string',
         'object' => '',
         'array' => 'array',
@@ -202,6 +202,11 @@ class DoctrineEntitySniff extends AbstractVariableSniff
      * @var integer
      */
     protected $memberPtr;
+
+    /**
+     * @var string
+     */
+    protected $memberType;
 
     /**
      * Current class member type.
@@ -251,6 +256,12 @@ class DoctrineEntitySniff extends AbstractVariableSniff
      */
     protected function processMemberVar(File $phpcsFile, $stackPtr): void
     {
+        $this->phpcsFile = $phpcsFile;
+        $this->memberPtr = $stackPtr;
+        $this->varType = null;
+        $this->memberType = null;
+        $this->tags = [];
+
         $commentEnd = $phpcsFile->findPrevious(T_DOC_COMMENT_CLOSE_TAG, $stackPtr - 1);
         if ($commentEnd === false) {
             return;
@@ -282,8 +293,9 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         }
 
         $this->tags = $matches;
-        $this->phpcsFile = $phpcsFile;
-        $this->memberPtr = $stackPtr;
+
+        $memberProperties = $phpcsFile->getMemberProperties($stackPtr);
+        $this->memberType = $memberProperties['type'];
 
         $this->parseCodingStandardsIgnoreErrors($comment);
 
@@ -653,14 +665,22 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             $columnType = $attributes['type'];
 
             if ($expectedType = $this->suggestType($columnType)) {
-                if (!$this->varType) {
+                if (!$this->varType && !$this->memberType) {
                     $error = 'Variable type required for column; expected "%s"';
                     $data = [$expectedType];
                     $this->reportError($error, $this->tagStart, 'VariableTypeRequired', $data);
-                } elseif (!$this->isSameTypes($expectedType, $this->varType)) {
+                }
+
+                if ($this->varType && !$this->isSameTypes($expectedType, $this->varType)) {
                     $error = 'Variable type must match column type; expected "%s" but found "%s"';
                     $data = [$expectedType, $this->varType];
                     $this->reportError($error, $this->tagStart, 'VariableTypeMismatch', $data);
+                }
+
+                if ($this->memberType && !$this->isSameTypes($expectedType, trim($this->memberType, '?'))) {
+                    $error = 'Property type must match column type; expected "%s" but found "%s"';
+                    $data = [$expectedType, $this->memberType];
+                    $this->reportError($error, $this->tagStart, 'PropertyTypeMismatch', $data);
                 }
             }
 
@@ -719,20 +739,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
     protected function underScore(string $value): string
     {
         return strtolower(preg_replace_callback('/([a-z0-9])([A-Z])/', [$this, 'underScoreCallback'], $value));
-    }
-
-    /**
-     * Checks whether params is same scalar types
-     *
-     * @param string $fullScalarName
-     * @param string $shortScalarName
-     *
-     * @return boolean
-     */
-    protected function isSameScalarTypes(string $fullScalarName, string $shortScalarName): bool
-    {
-        return array_key_exists($shortScalarName, self::SCALAR_TYPES)
-            && self::SCALAR_TYPES[$shortScalarName] === $fullScalarName;
     }
 
     /**
@@ -908,30 +914,37 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         } else {
             if ($returnType !== null) {
                 if ($returnType === '$this') {
-                    $returnType = sprintf('%s|self', $this->getShortClassName($this->getMethodClassName($methodPtr)));
-                    $returnTypeRegexp = sprintf('(?:%s)', $returnType);
-                } else {
-                    $returnTypeRegexp = str_replace("\\*", '[A-Za-z0-9]*', preg_quote($returnType, '/'));
+                    $returnType = sprintf('%s|self|static', $this->getShortClassName($this->getMethodClassName($methodPtr)));
                 }
 
-                $returnTypeRegexp = $this->makeRootNamespaceOptionalTypeRegexp($returnTypeRegexp);
-                $returnType = str_replace('*', '', $returnType);
+                $methodProperties = $this->phpcsFile->getMethodProperties($methodPtr);
+                $methodReturnType = ltrim($methodProperties['return_type'], '?');
 
                 $scopeOpenPtr = $tokens[$methodPtr]['scope_opener'];
                 $scopeClosePtr = $tokens[$methodPtr]['scope_closer'];
                 $returnPtr = $this->phpcsFile->findPrevious(T_RETURN, $scopeClosePtr, $scopeOpenPtr);
-                if ($returnPtr === false) {
+
+                if ($returnPtr === false && !$methodReturnType) {
                     $error = '%s %s "%s" must have return statement which returns %s';
                     $data = [$ownerType, $methodType, $methodName, $returnType];
                     $this->reportError($error, $methodPtr, $errorPrefix . 'ReturnRequired', $data);
                 }
 
                 if ($comment = $this->getDocComment($methodPtr)) {
-                    if (!preg_match('/@return\s+' . $returnTypeRegexp . '(\s+|\|)/', $comment)) {
+                    if (
+                        !preg_match('/@return\s+(\S+)/', $comment, $matches)
+                        || !$this->isSameTypes($returnType, $matches[1])
+                    ) {
                         $error = '%s %s "%s" must have return type "%s" in doc-comment';
                         $data = [$ownerType, $methodType, $methodName, $returnType];
                         $this->reportError($error, $methodPtr, $errorPrefix . 'ReturnType', $data);
                     }
+                }
+
+                if ($methodReturnType && !$this->isSameTypes($returnType, $methodReturnType)) {
+                    $error = '%s %s "%s" must have return type "%s"';
+                    $data = [$ownerType, $methodType, $methodName, $returnType];
+                    $this->reportError($error, $methodPtr, $errorPrefix . 'ReturnType', $data);
                 }
             }
 
@@ -993,13 +1006,11 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     }
 
                     if ($comment = $this->getDocComment($methodPtr)) {
-                        $argTypeRegexp = $this->makeRootNamespaceOptionalTypeRegexp(preg_quote($argumentType, '/'));
-
                         if (
-                            !preg_match('/@param\s+' . $argTypeRegexp . '\s+/', $comment)
-                            && (
-                                $this->isTypeHintMappedToConcreteType($argumentType, $argType)
-                                && !preg_match('/@param\s+' . preg_quote($argType, '/') . '\s+/', $comment)
+                            !preg_match('/@param\s+(\S+)/', $comment, $matches)
+                            || (
+                                !$this->isSameTypes($argumentType, $matches[1])
+                                && !$this->isTypeHintMappedToConcreteType($argumentType, $argType)
                             )
                         ) {
                             $error = '%s %s "%s" must have param "%s" with type "%s" in doc-comment';
@@ -1177,7 +1188,13 @@ class DoctrineEntitySniff extends AbstractVariableSniff
 
         $this->validateMethodDeclaration($name, 'remover', 'remove' . ucfirst($varName), true, null, $varName, $type);
 
-        $this->validateMethodDeclaration($name, 'getter', 'get' . ucfirst($this->varName), true, $type . '[]|*Collection');
+        $this->validateMethodDeclaration(
+            $name,
+            'getter',
+            'get' . ucfirst($this->varName),
+            true,
+            $type . '[]|Collection|ArrayCollection'
+        );
     }
 
     /**
@@ -1271,21 +1288,28 @@ class DoctrineEntitySniff extends AbstractVariableSniff
      */
     private function isSameTypes(string $expectedType, string $actualType): bool
     {
-        $normExpectedType = ltrim($expectedType, "\\");
-        $normActualType = ltrim($actualType, "\\");
+        $expectedType = ltrim($expectedType, "\\");
+        $actualType = ltrim($actualType, "\\");
 
-        return $normExpectedType === $normActualType || $this->isSameScalarTypes($normExpectedType, $normActualType);
+        if (
+            $expectedType === $actualType
+            || ($expectedType === 'array' && preg_match('/\[\]($|\|)/', $actualType))
+        ) {
+            return true;
+        }
+
+        if ($expectedType === 'DateTime') {
+            $expectedType .= '|DateTimeInterface|DateTimeImmutable';
+        }
+
+        $expectedTypes = array_map([$this, 'getLongType'], explode('|', $expectedType));
+        $actualTypes = array_map([$this, 'getLongType'], explode('|', $actualType));
+
+        return count(array_intersect($actualTypes, $expectedTypes)) > 0;
     }
 
-    /**
-     * Make root namespace optional for the given type Regexp.
-     *
-     * @param string $typeRegexp
-     *
-     * @return string
-     */
-    private function makeRootNamespaceOptionalTypeRegexp(string $typeRegexp): string
+    private function getLongType(string $shortType): string
     {
-        return preg_replace('/^(\\\\\\\\)(\w)/', '$1?$2', $typeRegexp);
+        return self::SCALAR_TYPES[$shortType] ?? $shortType;
     }
 }
