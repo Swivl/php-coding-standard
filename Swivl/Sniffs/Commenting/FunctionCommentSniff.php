@@ -6,6 +6,7 @@ use PHP_CodeSniffer\Files\File;
 use PHP_CodeSniffer\Standards\Generic\Sniffs\Commenting\DocCommentSniff;
 use PHP_CodeSniffer\Standards\Squiz\Sniffs\Commenting\FunctionCommentSniff as SquizFunctionCommentSniff;
 use PHP_CodeSniffer\Util\Tokens;
+use Swivl\Helpers\FunctionHelper;
 use Swivl\Helpers\TypeHelper;
 
 /**
@@ -17,12 +18,6 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
 {
     private const REQUIRED_PHPDOC_ALWAYS = 'always';
     private const REQUIRED_PHPDOC_BY_MAP = 'map';
-
-    private const METHOD_NAMES_WITHOUT_RETURN_TYPE_MAP = [
-        '__construct' => true,
-        '__destruct' => true,
-        '__clone' => true,
-    ];
 
     public $requiredPhpdoc = self::REQUIRED_PHPDOC_BY_MAP;
 
@@ -44,17 +39,28 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
      */
     public function process(File $phpcsFile, $stackPtr)
     {
-        $tokens = $phpcsFile->getTokens();
-        $find = Tokens::$methodPrefixes;
-        $find[] = T_WHITESPACE;
+        $scopeModifier = $phpcsFile->getMethodProperties($stackPtr)['scope'];
+        if (
+            ($scopeModifier === 'protected' && $this->minimumVisibility === 'public')
+            || (
+                $scopeModifier === 'private'
+                && ($this->minimumVisibility === 'public' || $this->minimumVisibility === 'protected')
+            )
+        ) {
+            return;
+        }
 
-        $commentEnd = $phpcsFile->findPrevious($find, ($stackPtr - 1), null, true);
+        $tokens = $phpcsFile->getTokens();
+        $ignore = Tokens::$methodPrefixes;
+        $ignore[] = T_WHITESPACE;
+
+        $commentEnd = $phpcsFile->findPrevious($ignore, ($stackPtr - 1), null, true);
         if ($tokens[$commentEnd]['code'] === T_COMMENT) {
             // Inline comments might just be closing comments for
             // control structures or functions instead of function comments
             // using the wrong comment type. If there is other code on the line,
             // assume they relate to that code.
-            $prev = $phpcsFile->findPrevious($find, ($commentEnd - 1), null, true);
+            $prev = $phpcsFile->findPrevious($ignore, ($commentEnd - 1), null, true);
             if ($prev !== false && $tokens[$prev]['line'] === $tokens[$commentEnd]['line']) {
                 $commentEnd = $prev;
             }
@@ -65,7 +71,7 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
                 $this->requiredPhpdoc === self::REQUIRED_PHPDOC_ALWAYS
                 || (
                     $this->requiredPhpdoc === self::REQUIRED_PHPDOC_BY_MAP
-                    && $this->hasTypeWithRequiredComment($phpcsFile, $stackPtr)
+                    && FunctionHelper::isDocCommentRequired($phpcsFile, $stackPtr)
                 )
             ) {
                 $function = $phpcsFile->getDeclarationName($stackPtr);
@@ -300,38 +306,5 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
         }
 
         $this->docCommentSniff->process($phpcsFile, $commentStart);
-    }
-
-    /**
-     * Returns true if any type hint has the type which needs specification in phpdoc or type hint is absent.
-     *
-     * @param File    $phpcsFile
-     * @param integer $stackPtr
-     *
-     * @return boolean
-     */
-    private function hasTypeWithRequiredComment(File $phpcsFile, int $stackPtr): bool
-    {
-        $methodProperties = $phpcsFile->getMethodProperties($stackPtr);
-        $returnType = $methodProperties['return_type'];
-
-        if (
-            (!$returnType || TypeHelper::isTypeTraversable($returnType))
-            && !isset(self::METHOD_NAMES_WITHOUT_RETURN_TYPE_MAP[$phpcsFile->getDeclarationName($stackPtr)])
-        ) {
-            return true;
-        }
-
-        $methodParameters = $phpcsFile->getMethodParameters($stackPtr);
-
-        foreach ($methodParameters as $pos => $param) {
-            $paramType = $param['type_hint'];
-
-            if (!$paramType || TypeHelper::isTypeTraversable($paramType)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

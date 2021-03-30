@@ -145,7 +145,11 @@
         <severity>0</severity>
     </rule>
     <rule ref="Squiz.Commenting.EmptyCatchComment"/>
-    <rule ref="Swivl.Commenting.FunctionComment"/>
+    <rule ref="Swivl.Commenting.FunctionComment">
+        <properties>
+            <property name="skipIfInheritdoc" value="true" />
+        </properties>
+    </rule>
     <rule ref="Swivl.Commenting.FunctionComment.EmptyThrows">
         <severity>0</severity>
     </rule>
