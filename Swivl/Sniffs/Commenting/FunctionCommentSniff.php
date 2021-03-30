@@ -21,6 +21,8 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
 
     public $requiredPhpdoc = self::REQUIRED_PHPDOC_BY_MAP;
 
+    public $minimumVisibility = 'private';
+
     /**
      * @var DocCommentSniff
      */

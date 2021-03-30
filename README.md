@@ -89,6 +89,7 @@ This sniff provides the option:
 <rule ref="Swivl.Commenting.FunctionComment">
     <properties>
         <property name="requiredPhpdoc" value="always"/>
+        <property name="minimumVisibility" value="private"/>
     </properties>
 </rule>
 ```
