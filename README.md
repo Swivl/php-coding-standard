@@ -128,6 +128,23 @@ This sniff provides the following options:
 </rule>
 ```
 
+#### `Swivl.Commenting.UselessClassComment`
+
+This sniff provides the following options:
+```xml
+<rule ref="Swivl.Commenting.UselessClassComment">
+    <properties>
+        <property name="maxDescriptionLines" value="1"/>
+        <property name="uselessTags" type="array">
+            <element value="@package"/>
+        </property>
+        <property name="uselessDescriptions" type="array">
+            <element value="Doctrine migration"/>
+        </property>
+    </properties>
+</rule>
+```
+
 Dependencies update
 -------------------
 Some sniffs from Swivl Coding Standard override sniffs from libraries which are in dependencies list.
