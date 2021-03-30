@@ -628,13 +628,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         }
     }
 
-    /**
-     * Checks whether annotation exists.
-     *
-     * @param string $name
-     *
-     * @return boolean
-     */
     protected function hasAnnotation(string $name): bool
     {
         return in_array('ORM\\' . $name, $this->tags[1], true);
@@ -717,25 +710,11 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         );
     }
 
-    /**
-     * Returns camelCase representation of the under_scored string.
-     *
-     * @param string $value
-     *
-     * @return string
-     */
     protected function camelCase(string $value): string
     {
         return lcfirst(str_replace(' ', '', ucwords(trim(str_replace('_', ' ', $value)))));
     }
 
-    /**
-     * Returns under_score representation of the camelCased string.
-     *
-     * @param string $value
-     *
-     * @return string
-     */
     protected function underScore(string $value): string
     {
         return strtolower(preg_replace_callback('/([a-z0-9])([A-Z])/', [$this, 'underScoreCallback'], $value));
@@ -753,26 +732,11 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         return $matches[1] . '_' . strtolower($matches[2]);
     }
 
-    /**
-     * Returns a variable type corresponding to DBAL type.
-     *
-     * @param string $type
-     *
-     * @return string
-     */
     protected function suggestType(string $type): string
     {
         return $this->mappingTypes[$type] ?? $this->calculateMappingTypeDynamically($type);
     }
 
-    /**
-     * Dynamical mapping type calculation
-     *
-     * @param string $columnType
-     * @param string $fallbackToType
-     *
-     * @return string
-     */
     protected function calculateMappingTypeDynamically(string $columnType, string $fallbackToType = 'string'): string
     {
         $calculatedType = $fallbackToType;
@@ -810,13 +774,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         return $this->methods;
     }
 
-    /**
-     * Returns a doc-comment for the given token.
-     *
-     * @param integer $stackPtr
-     *
-     * @return string|null
-     */
     protected function getDocComment(int $stackPtr): ?string
     {
         $commentEnd = $this->phpcsFile->findPrevious(T_DOC_COMMENT_CLOSE_TAG, $stackPtr - 1);
@@ -834,13 +791,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         return $this->phpcsFile->getTokensAsString($commentStart, ($commentEnd - $commentStart + 1));
     }
 
-    /**
-     * Returns the method class name.
-     *
-     * @param integer $stackPtr
-     *
-     * @return string|null
-     */
     protected function getMethodClassName(int $stackPtr): ?string
     {
         $this->validateCache();
@@ -865,18 +815,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         return $this->className;
     }
 
-    /**
-     * Validates method declaration.
-     *
-     * @param string  $ownerType
-     * @param string  $methodType
-     * @param string  $methodName
-     * @param boolean $methodRequired
-     * @param string  $returnType
-     * @param string  $argumentName
-     * @param string  $argumentType
-     * @param boolean $argumentNullable
-     */
     protected function validateMethodDeclaration(
         string $ownerType,
         string $methodType,
@@ -1023,9 +961,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         }
     }
 
-    /**
-     * Validates cache and clears it in case of filename change.
-     */
     protected function validateCache(): void
     {
         $file = $this->phpcsFile->getFilename();
@@ -1089,13 +1024,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         return $this->initializedMembers;
     }
 
-    /**
-     * Returns short class name for the given FQCN.
-     *
-     * @param string $className
-     *
-     * @return string
-     */
     protected function getShortClassName(string $className): string
     {
         if (strpos($className, "\\") !== false) {
@@ -1112,13 +1040,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         return $className;
     }
 
-    /**
-     * Returns annotation attributes string.
-     *
-     * @param string $name
-     *
-     * @return string
-     */
     protected function getAnnotationAttributes(string $name): string
     {
         $key = array_search('ORM\\' . $name, $this->tags[1], true);
@@ -1241,11 +1162,6 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         }
     }
 
-    /**
-     * Parses comment for codingStandardsIgnoreError annotation.
-     *
-     * @param string $comment
-     */
     protected function parseCodingStandardsIgnoreErrors(string $comment): void
     {
         $this->codingStandardsIgnoreErrors = [];
@@ -1265,27 +1181,11 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         }
     }
 
-    /**
-     * Enables to use Parents as typehint, while mapped to concrete sub class in association
-     *
-     * @param string      $expectedType
-     * @param string|null $realTypeHint
-     *
-     * @return boolean
-     */
     protected function isTypeHintMappedToConcreteType(string $expectedType, ?string $realTypeHint): bool
     {
         return ($this->concreteTypeToBaseTypeMap[$expectedType] ?? null) === $realTypeHint;
     }
 
-    /**
-     * Checks whether types are the same.
-     *
-     * @param string $expectedType
-     * @param string $actualType
-     *
-     * @return boolean
-     */
     private function isSameTypes(string $expectedType, string $actualType): bool
     {
         $expectedType = ltrim($expectedType, "\\");

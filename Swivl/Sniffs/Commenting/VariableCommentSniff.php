@@ -57,13 +57,6 @@ class VariableCommentSniff extends AbstractVariableSniff
     {
     }
 
-    /**
-     * Validates variable comment.
-     *
-     * @param File    $phpcsFile
-     * @param integer $stackPtr
-     * @param boolean $multiline
-     */
     protected function validateVariableComment(File $phpcsFile, int $stackPtr, bool $multiline): void
     {
         $commentEnd = $phpcsFile->findPrevious(T_DOC_COMMENT_CLOSE_TAG, $stackPtr - 1);
