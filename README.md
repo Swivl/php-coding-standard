@@ -108,6 +108,26 @@ This sniff provides the following options:
 </rule>
 ```
 
+#### `Swivl.Commenting.UselessFunctionComment`
+
+This sniff provides the following options:
+```xml
+<rule ref="Swivl.Commenting.UselessFunctionComment">
+    <properties>
+        <property name="ignoreClasses" value="false"/>
+        <property name="ignoreInterfaces" value="false"/>
+        <property name="ignoreTraits" value="false"/>
+        <property name="includeNames" type="array">
+            <element value="__construct"/>
+        </property>
+        <property name="excludeNames" type="array">
+            <element value="__serialize"/>
+        </property>
+        <property name="maxDescriptionLines" value="1"/>
+    </properties>
+</rule>
+```
+
 Dependencies update
 -------------------
 Some sniffs from Swivl Coding Standard override sniffs from libraries which are in dependencies list.
