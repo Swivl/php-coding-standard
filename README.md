@@ -97,6 +97,17 @@ This sniff provides the option:
     * `map` - PHPDoc is required for a method if at least 1 type hint or return type is in the list which is defined in the sniff in FunctionCommentSniff::REQUIRED_PHPDOC_MAP. It is the default behavior.
     * `never` - PHPDoc isn't required for all methods.
 
+#### `Swivl.Functions.ConstructorPropertyPromotion`
+
+This sniff provides the following options:
+```xml
+<rule ref="Swivl.Functions.ConstructorPropertyPromotion">
+    <properties>
+        <property name="indent" value="4"/>
+    </properties>
+</rule>
+```
+
 Dependencies update
 -------------------
 Some sniffs from Swivl Coding Standard override sniffs from libraries which are in dependencies list.
