@@ -17,7 +17,7 @@ class TypeHelper
 
     public static function isTypeTraversable(string $mixedType): bool
     {
-        foreach (explode('|', $mixedType) as $type) {
+        foreach (explode('|', self::normalizeType($mixedType)) as $type) {
             $type = strtolower(ltrim($type, '\\'));
             $typeLen = strlen($type);
 
@@ -38,5 +38,14 @@ class TypeHelper
         if ($missedScalarTypes = array_diff(self::SHORT_SCALAR_TYPES, Common::$allowedTypes)) {
             Common::$allowedTypes = array_merge(Common::$allowedTypes, $missedScalarTypes);
         }
+    }
+
+    public static function normalizeType(string $mixedType): string
+    {
+        if ($mixedType !== '' && $mixedType[0] === '?') {
+            $mixedType = substr($mixedType, 1) . '|null';
+        }
+
+        return $mixedType;
     }
 }
