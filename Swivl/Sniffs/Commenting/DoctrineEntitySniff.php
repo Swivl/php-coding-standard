@@ -870,7 +870,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
 
                 if ($comment = $this->getDocComment($methodPtr)) {
                     if (
-                        !preg_match('/@return\s+(\S+)/', $comment, $matches)
+                        !preg_match('/@return\s+([^\s<]+(<.*>)?)/', $comment, $matches)
                         || !$this->isSameTypes($returnType, $matches[1])
                     ) {
                         $error = '%s %s "%s" must have return type "%s" in doc-comment';
@@ -1114,7 +1114,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             'getter',
             'get' . ucfirst($this->varName),
             true,
-            $type . '[]|Collection|ArrayCollection'
+            sprintf('%s[]|Collection|ArrayCollection|Collection<%s>|Collection<int, %s>', $type, $type, $type)
         );
     }
 
