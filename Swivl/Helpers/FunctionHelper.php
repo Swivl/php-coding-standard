@@ -15,6 +15,12 @@ class FunctionHelper
 
     public static function isDocCommentRequired(File $phpcsFile, int $functionPtr): bool
     {
+        return self::isDocCommentReturnRequired($phpcsFile, $functionPtr)
+            || self::isDocCommentParametersRequired($phpcsFile, $functionPtr);
+    }
+
+    public static function isDocCommentReturnRequired(File $phpcsFile, int $functionPtr): bool
+    {
         $methodProperties = $phpcsFile->getMethodProperties($functionPtr);
         $returnType = $methodProperties['return_type'];
 
@@ -25,6 +31,11 @@ class FunctionHelper
             return true;
         }
 
+        return false;
+    }
+
+    public static function isDocCommentParametersRequired(File $phpcsFile, int $functionPtr): bool
+    {
         $methodParameters = $phpcsFile->getMethodParameters($functionPtr);
 
         foreach ($methodParameters as $pos => $param) {

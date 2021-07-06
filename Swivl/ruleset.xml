@@ -153,6 +153,9 @@
     <rule ref="Swivl.Commenting.FunctionComment.EmptyThrows">
         <severity>0</severity>
     </rule>
+    <rule ref="Swivl.Commenting.FunctionComment.MissingShort">
+        <severity>0</severity>
+    </rule>
     <rule ref="Swivl.Commenting.FunctionComment.MissingParamComment">
         <severity>0</severity>
     </rule>

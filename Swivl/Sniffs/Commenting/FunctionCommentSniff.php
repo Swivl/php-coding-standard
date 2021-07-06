@@ -34,10 +34,10 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
     }
 
     /**
+     * {@inheritDoc}
+     *
      * This method is the copy of the parent method,
      * with the only difference that the condition in which the method "hasTypeWithRequiredComment" is called was added
-     *
-     * {@inheritDoc}
      */
     public function process(File $phpcsFile, $stackPtr)
     {
@@ -68,12 +68,15 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
             }
         }
 
+        $requireParams = FunctionHelper::isDocCommentParametersRequired($phpcsFile, $stackPtr);
+        $requireReturn = FunctionHelper::isDocCommentReturnRequired($phpcsFile, $stackPtr);
+
         if ($tokens[$commentEnd]['code'] !== T_DOC_COMMENT_CLOSE_TAG && $tokens[$commentEnd]['code'] !== T_COMMENT) {
             if (
                 $this->requiredPhpdoc === self::REQUIRED_PHPDOC_ALWAYS
                 || (
                     $this->requiredPhpdoc === self::REQUIRED_PHPDOC_BY_MAP
-                    && FunctionHelper::isDocCommentRequired($phpcsFile, $stackPtr)
+                    && ($requireParams || $requireReturn)
                 )
             ) {
                 $function = $phpcsFile->getDeclarationName($stackPtr);
@@ -104,115 +107,52 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
         }
 
         $commentStart = $tokens[$commentEnd]['comment_opener'];
+
+        $hasParams = false;
+        $hasReturn = false;
+        $hasThrows = false;
+
         foreach ($tokens[$commentStart]['comment_tags'] as $tag) {
-            if ($tokens[$tag]['content'] === '@see') {
+            $tagName = $tokens[$tag]['content'];
+
+            if ($tagName === '@see') {
                 // Make sure the tag isn't empty.
                 $string = $phpcsFile->findNext(T_DOC_COMMENT_STRING, $tag, $commentEnd);
                 if ($string === false || $tokens[$string]['line'] !== $tokens[$tag]['line']) {
                     $error = 'Content missing for @see tag in function comment';
                     $phpcsFile->addError($error, $tag, 'EmptySees');
                 }
+            } elseif ($tagName === '@param') {
+                $hasParams = true;
+            } elseif ($tagName === '@return') {
+                $hasReturn = true;
+            } elseif ($tagName === '@throws') {
+                $hasThrows = true;
             }
         }
 
-        $this->processReturn($phpcsFile, $stackPtr, $commentStart);
-        $this->processThrows($phpcsFile, $stackPtr, $commentStart);
-        $this->processParams($phpcsFile, $stackPtr, $commentStart);
-    }
+        $this->processUnknownTags($phpcsFile, $commentStart);
 
-    /**
-     * Process the return comment of this function comment.
-     *
-     * @param File    $phpcsFile    The file being scanned.
-     * @param integer $stackPtr     The position of the current token in the stack passed in $tokens.
-     * @param integer $commentStart The position in the stack where the comment started.
-     */
-    protected function processReturn(File $phpcsFile, $stackPtr, $commentStart): void
-    {
-        $this->processUnknownTags($phpcsFile, $stackPtr, $commentStart);
-
-        if ($this->isInheritDoc($phpcsFile, $stackPtr, $commentStart)) {
+        if ($this->skipIfInheritdoc === true && $this->checkInheritdoc($phpcsFile, $stackPtr, $commentStart)) {
             return;
         }
 
-        $this->processDocComment($phpcsFile, $stackPtr, $commentStart);
+        $this->processDocComment($phpcsFile, $commentStart);
 
-        $tokens = $phpcsFile->getTokens();
+        if ($hasParams || $requireParams) {
+            $this->processParams($phpcsFile, $stackPtr, $commentStart);
+        }
 
-        // Only check for a return comment if a non-void return statement exists
-        if (isset($tokens[$stackPtr]['scope_opener'])) {
-            $start = $tokens[$stackPtr]['scope_opener'];
+        if ($hasReturn || $requireReturn) {
+            $this->processReturn($phpcsFile, $stackPtr, $commentStart);
+        }
 
-            // iterate over all return statements of this function,
-            // run the check on the first which is not only 'return;'
-            while ($returnToken = $phpcsFile->findNext(T_RETURN, $start, $tokens[$stackPtr]['scope_closer'])) {
-                if ($this->isMatchingReturn($tokens, $returnToken)) {
-                    parent::processReturn($phpcsFile, $stackPtr, $commentStart);
-                    break;
-                }
-                $start = $returnToken + 1;
-            }
+        if ($hasThrows) {
+            $this->processThrows($phpcsFile, $stackPtr, $commentStart);
         }
     }
 
-    /**
-     * Is the comment an inheritdoc?
-     *
-     * @param File    $phpcsFile    The file being scanned.
-     * @param integer $stackPtr     The position of the current token
-     *                              in the stack passed in $tokens.
-     * @param integer $commentStart The position in the stack where the comment started.
-     *
-     * @return boolean True if the comment is an inheritdoc
-     */
-    protected function isInheritDoc(File $phpcsFile, int $stackPtr, $commentStart): bool
-    {
-        $commentString = $phpcsFile->getTokensAsString($commentStart, ($stackPtr - $commentStart + 1));
-
-        return preg_match('#{@inheritdoc}#i', $commentString) === 1;
-    }
-
-    /**
-     * Process the function parameter comments.
-     *
-     * @param File    $phpcsFile    The file being scanned.
-     * @param integer $stackPtr     The position of the current token in the stack passed in $tokens.
-     * @param integer $commentStart The position in the stack where the comment started.
-     */
-    protected function processParams(File $phpcsFile, $stackPtr, $commentStart): void
-    {
-        if ($this->isInheritDoc($phpcsFile, $stackPtr, $commentStart)) {
-            return;
-        }
-
-        parent::processParams($phpcsFile, $stackPtr, $commentStart);
-    }
-
-    /**
-     * Is the return statement matching?
-     *
-     * @param array   $tokens    Array of tokens
-     * @param integer $returnPos Stack position of the T_RETURN token to process
-     *
-     * @return boolean True if the return does not return anything
-     */
-    protected function isMatchingReturn(array $tokens, int $returnPos): bool
-    {
-        do {
-            $returnPos++;
-        } while ($tokens[$returnPos]['code'] === T_WHITESPACE);
-
-        return $tokens[$returnPos]['code'] !== T_SEMICOLON;
-    }
-
-    /**
-     * Process a list of unknown tags.
-     *
-     * @param File    $phpcsFile    The file being scanned.
-     * @param integer $stackPtr     The position of the current token in the stack passed in $tokens.
-     * @param integer $commentStart The position in the stack where the comment started.
-     */
-    protected function processUnknownTags(File $phpcsFile, int $stackPtr, int $commentStart): void
+    protected function processUnknownTags(File $phpcsFile, int $commentStart): void
     {
         $tokens = $phpcsFile->getTokens();
 
@@ -294,14 +234,7 @@ class FunctionCommentSniff extends SquizFunctionCommentSniff
         }
     }
 
-    /**
-     * Process generic Doc Comment.
-     *
-     * @param File    $phpcsFile    The file being scanned.
-     * @param integer $stackPtr     The position of the current token in the stack passed in $tokens.
-     * @param integer $commentStart The position in the stack where the comment started.
-     */
-    protected function processDocComment(File $phpcsFile, $stackPtr, $commentStart): void
+    protected function processDocComment(File $phpcsFile, int $commentStart): void
     {
         if (!$this->docCommentSniff) {
             $this->docCommentSniff = new DocCommentSniff();
