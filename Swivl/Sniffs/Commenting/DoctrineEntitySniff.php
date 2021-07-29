@@ -543,7 +543,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         string $name,
         array $attributes,
         array $attributesRules,
-        array $requiredAttributes
+        array $requiredAttributes,
     ): void
     {
         if (!empty($requiredAttributes)) {
