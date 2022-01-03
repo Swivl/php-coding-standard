@@ -262,58 +262,20 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         $this->memberType = null;
         $this->tags = [];
 
-        $commentEnd = $phpcsFile->findPrevious(T_DOC_COMMENT_CLOSE_TAG, $stackPtr - 1);
-        if ($commentEnd === false) {
+        $this->parsePropertyAnnotations($phpcsFile, $stackPtr);
+        $this->parsePropertyAttributes($phpcsFile, $stackPtr);
+
+        if (count($this->tags) === 0) {
             return;
         }
-
-        $commentFor = $phpcsFile->findNext([T_VARIABLE, T_CLASS, T_INTERFACE, T_FUNCTION], $commentEnd + 1);
-        if ($commentFor !== $stackPtr) {
-            return;
-        }
-
-        $commentStart = $phpcsFile->findPrevious(T_DOC_COMMENT_OPEN_TAG, $commentEnd - 1);
-
-        $commentString = $phpcsFile->getTokensAsString($commentStart + 1, ($commentEnd - $commentStart - 1));
-        $commentLines = explode($phpcsFile->eolChar, $commentString);
-        $comment = '';
-        foreach ($commentLines as $lineNum => $line) {
-            $line = trim($line, "/* \r\n");
-            $comment .= ' ' . $line;
-            if (preg_match('/^@var /', $line)) {
-                $definition = preg_split('/\s+/', $line);
-                if (count($definition) > 1) {
-                    $this->varType = strtok($definition[1], '|');
-                }
-            }
-        }
-
-        if (!preg_match_all('/ @([a-zA-Z0-9_\x7f-\xff\\\\]+)(\([^\)]*\))?/', $comment, $matches, PREG_PATTERN_ORDER)) {
-            return;
-        }
-
-        $this->tags = $matches;
 
         $memberProperties = $phpcsFile->getMemberProperties($stackPtr);
         $this->memberType = $memberProperties['type'];
 
-        $this->parseCodingStandardsIgnoreErrors($comment);
-
         foreach ($this->tags[1] as $tagPos => $tagName) {
-            if (strpos($tagName, 'ORM') === 0) {
-                $tokens = $phpcsFile->getTokens();
-                $commentTags = $tokens[$commentStart]['comment_tags'];
-                $this->tagStart = $commentTags[$tagPos] ?? $commentTags[0];
+            $this->tagStart = $tagPos;
 
-                $attrs = trim($this->tags[2][$tagPos], '()');
-
-                if ($tagName === 'ORM\JoinTable') {
-                    // Skip because nested annotations are not supported at the moment
-                    continue;
-                }
-
-                $this->processORMAnnotation($tagName, $this->parseAttributes($attrs));
-            }
+            $this->processORMAnnotation($tagName, $this->tags[2][$tagPos]);
         }
     }
 
@@ -340,6 +302,99 @@ class DoctrineEntitySniff extends AbstractVariableSniff
     {
     }
 
+    protected function parsePropertyAnnotations(File $phpcsFile, int $propertyPtr): void
+    {
+        $commentEnd = $phpcsFile->findPrevious(T_DOC_COMMENT_CLOSE_TAG, $propertyPtr - 1);
+
+        if ($commentEnd === false) {
+            return;
+        }
+
+        $commentFor = $phpcsFile->findNext([T_VARIABLE, T_CLASS, T_INTERFACE, T_FUNCTION], $commentEnd + 1);
+
+        if ($commentFor !== $propertyPtr) {
+            return;
+        }
+
+        $commentStart = $phpcsFile->findPrevious(T_DOC_COMMENT_OPEN_TAG, $commentEnd - 1);
+
+        $commentString = $phpcsFile->getTokensAsString($commentStart + 1, ($commentEnd - $commentStart - 1));
+        $commentLines = explode($phpcsFile->eolChar, $commentString);
+        $comment = '';
+
+        foreach ($commentLines as $lineNum => $line) {
+            $line = trim($line, "/* \r\n");
+            $comment .= ' ' . $line;
+
+            if (preg_match('/^@var /', $line)) {
+                $definition = preg_split('/\s+/', $line);
+
+                if (count($definition) > 1) {
+                    $this->varType = strtok($definition[1], '|');
+                }
+            }
+        }
+
+        if (!preg_match_all('/ @([a-zA-Z0-9_\x7f-\xff\\\\]+)(\([^\)]*\))?/', $comment, $matches, PREG_PATTERN_ORDER)) {
+            return;
+        }
+
+        $this->parseCodingStandardsIgnoreErrors($comment);
+
+        $tokens = $phpcsFile->getTokens();
+
+        foreach ($matches[1] as $tagPos => $tagName) {
+            if (strpos($tagName, 'ORM') === 0) {
+                $commentTags = $tokens[$commentStart]['comment_tags'];
+                $this->tagStart = $commentTags[$tagPos] ?? $commentTags[0];
+
+                $attrs = trim($matches[2][$tagPos], '()');
+
+                if ($tagName === 'ORM\JoinTable') {
+                    // Skip because nested annotations are not supported at the moment
+                    continue;
+                }
+
+                $this->tags[1][$this->tagStart] = $tagName;
+                $this->tags[2][$this->tagStart] = $this->parseAnnotationAttributes($attrs);
+            }
+        }
+    }
+
+    protected function parsePropertyAttributes(File $phpcsFile, int $propertyPtr): void
+    {
+        $tokens = $phpcsFile->getTokens();
+        $attributeStart = $propertyPtr;
+
+        while (($attributeEnd = $phpcsFile->findPrevious(T_ATTRIBUTE_END, $attributeStart - 1)) !== false) {
+            $attributeFor = $phpcsFile->findNext([T_VARIABLE, T_CLASS, T_INTERFACE, T_FUNCTION], $attributeEnd + 1);
+
+            if ($attributeFor !== $propertyPtr) {
+                break;
+            }
+
+            $attributeStart = $tokens[$attributeEnd]['attribute_opener'];
+            $parenthesisOpener = $phpcsFile->findNext(T_OPEN_PARENTHESIS, $attributeStart + 1, $attributeEnd);
+            $attributeName = trim($phpcsFile->getTokensAsString($attributeStart + 1, ($parenthesisOpener ?: $attributeEnd) - $attributeStart - 1));
+            $attributeParams = [];
+
+            if (strpos($attributeName, 'ORM') !== 0 || $attributeName === 'ORM\JoinTable') {
+                continue;
+            }
+
+            if ($parenthesisOpener !== false) {
+                $parenthesisCloser = $tokens[$parenthesisOpener]['parenthesis_closer'];
+                $attributeParamsString = $phpcsFile->getTokensAsString($parenthesisOpener + 1, $parenthesisCloser - $parenthesisOpener - 1);
+
+                $this->tagStart = $attributeStart;
+                $attributeParams = $this->parseNativeAttributeParams($attributeParamsString);
+            }
+
+            $this->tags[1][$attributeStart] = $attributeName;
+            $this->tags[2][$attributeStart] = $attributeParams;
+        }
+    }
+
     /**
      * Parses annotation attributes and returns an array.
      *
@@ -347,7 +402,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
      *
      * @return array
      */
-    protected function parseAttributes(string $text): array
+    protected function parseAnnotationAttributes(string $text): array
     {
         $attributes = [];
 
@@ -438,6 +493,120 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         }
 
         return $attributes;
+    }
+
+    /**
+     * Parses native attribute params and returns an array.
+     *
+     * @param string $text
+     *
+     * @return array
+     */
+    protected function parseNativeAttributeParams(string $text): array
+    {
+        $params = [];
+
+        $text = trim($text);
+
+        while ($text !== '') {
+            if (strpos($text, '[') === 0) {
+                if ($endPos = strpos($text, ']')) {
+                    $text = substr($text, $endPos + 1);
+
+                    continue;
+                }
+            }
+
+            $colonPos = strpos($text, ':');
+            $name = substr($text, 0, $colonPos);
+
+            if (strpos($name, ' ') !== false) {
+                $name = trim($name);
+                $error = 'Found extra space before attribute "%s" name';
+                $data = [$name];
+                $this->reportError($error, $this->tagStart, 'ExtraSpace', $data);
+            }
+
+            $valuePos = $colonPos + 1;
+
+            if (substr($text, $valuePos, 1) !== ' ') {
+                $error = 'Need space before attribute "%s" value';
+                $data = [$name];
+                $this->reportError($error, $this->tagStart, 'NeedSpace', $data);
+            }
+
+            while (substr($text, $valuePos, 1) === ' ') {
+                $valuePos++;
+            }
+
+            if (substr($text, $valuePos, 1) === "'") {
+                $valueEndPos = strpos($text, "'", $valuePos + 1);
+
+                if ($valueEndPos === false) {
+                    $error = 'Unexpected end of string';
+                    $this->reportError($error, $this->tagStart, 'UnexpectedEnd');
+                    $valueEndPos = strlen($text) - 1;
+                }
+
+                $value = substr($text, $valuePos + 1, $valueEndPos - $valuePos - 1);
+            } elseif (substr($text, $valuePos, 1) === '[') {
+                $valueEndPos = strpos($text, ']', $valuePos + 1);
+
+                if ($valueEndPos === false) {
+                    $error = 'Unexpected end of array';
+                    $this->reportError($error, $this->tagStart, 'UnexpectedEnd');
+                    $valueEndPos = strlen($text) - 1;
+                }
+
+                $value = substr($text, $valuePos, $valueEndPos - $valuePos + 1);
+            } else {
+                $commaPos = strpos($text, ',', $valuePos);
+
+                if ($commaPos !== false) {
+                    $valueEndPos = $commaPos - 1;
+                } else {
+                    $valueEndPos = strlen($text) - 1;
+                }
+
+                $value = substr($text, $valuePos, $valueEndPos - $valuePos + 1);
+
+                if (in_array(strtolower($value), ['false', 'true'])) {
+                    $value = strtolower($value) === 'true';
+                } elseif (is_numeric($value)) {
+                    $value = (int) $value;
+                }
+            }
+
+            $params[$name] = $value;
+
+            if ($valueEndPos < strlen($text) - 1) {
+                $delimiterPos = $valueEndPos + 1;
+                $delimiter = substr($text, $delimiterPos, 1);
+
+                if ($delimiter === ' ') {
+                    $error = 'Extra space after attribute "%s" value';
+                    $data = [$name];
+                    $this->reportError($error, $this->tagStart, 'ExtraSpace', $data);
+
+                    do {
+                        $delimiterPos++;
+                        $delimiter = substr($text, $delimiterPos, 1);
+                    } while ($delimiter === ' ');
+                }
+
+                if ($delimiter === ',') {
+                    if (substr($text, $delimiterPos + 1, 1) === ' ') {
+                        $delimiterPos++;
+                    }
+                }
+
+                $valueEndPos = $delimiterPos;
+            }
+
+            $text = substr($text, $valueEndPos + 1);
+        }
+
+        return $params;
     }
 
     /**
@@ -604,7 +773,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     break;
 
                 case 'array':
-                    $valid = strpos($value, '{') === 0;
+                    $valid = in_array(substr($value, 0, 1), ['{', '['], true);
                     break;
 
                 case 'class':
@@ -734,6 +903,15 @@ class DoctrineEntitySniff extends AbstractVariableSniff
 
     protected function suggestType(string $type): string
     {
+        // support Doctrine\DBAL\Types\Types constants
+        if (strpos($type, 'Types::') === 0) {
+            $type = strtolower(substr($type, 7));
+
+            if (substr($type, -8, 8) === '_mutable') {
+                $type = substr($type, 0, -8);
+            }
+        }
+
         return $this->mappingTypes[$type] ?? $this->calculateMappingTypeDynamically($type);
     }
 
@@ -1040,11 +1218,18 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         return $className;
     }
 
-    protected function getAnnotationAttributes(string $name): string
+    /**
+     * Returns annotation attributes.
+     *
+     * @param string $name
+     *
+     * @return array
+     */
+    protected function getAnnotationAttributes(string $name): array
     {
         $key = array_search('ORM\\' . $name, $this->tags[1], true);
 
-        return $key !== false ? $this->tags[2][$key] : '';
+        return $key !== false ? $this->tags[2][$key] : [];
     }
 
     /**
@@ -1058,11 +1243,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         $type = $this->getShortClassName($attributes['targetEntity']);
 
         $joinAttributes = $this->getAnnotationAttributes('JoinColumn');
-        $nullable = true;
-
-        if (strpos($joinAttributes, 'nullable=false') !== false) {
-            $nullable = false;
-        }
+        $nullable = (bool) ($joinAttributes['nullable'] ?? true);
 
         $this->validateMethodDeclaration($name, 'getter', 'get' . ucfirst($this->varName), true, $type);
 
