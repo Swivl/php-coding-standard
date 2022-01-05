@@ -520,13 +520,14 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             $colonPos = strpos($text, ':');
             $name = substr($text, 0, $colonPos);
 
-            if (strpos($name, ' ') !== false) {
+            if (strpos($name, ' ') !== false && strpos($name, "\n") === false) {
                 $name = trim($name);
                 $error = 'Found extra space before attribute "%s" name';
                 $data = [$name];
                 $this->reportError($error, $this->tagStart, 'ExtraSpace', $data);
             }
 
+            $name = trim($name, " \r\n");
             $valuePos = $colonPos + 1;
 
             if (substr($text, $valuePos, 1) !== ' ') {
@@ -777,7 +778,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     break;
 
                 case 'class':
-                    $valid = (ucfirst($value) === $value) && (
+                    $valid = (ucfirst($value) === $value || $value === 'self::class') && (
                             (strpos($value, "\\") !== false)
                             || strpos($value, self::CLASS_SUFFIX, -self::CLASS_SUFFIX_LENGTH)
                         );
@@ -821,8 +822,8 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             }
         }
 
-        $columnType = null;
-        $expectedType = null;
+        $expectedType = $this->memberType;
+
         if (isset($attributes['type'])) {
             $columnType = $attributes['type'];
 
@@ -1213,6 +1214,10 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             && strpos($className, self::CLASS_SUFFIX, -self::CLASS_SUFFIX_LENGTH)
         ) {
             $className = substr($className, 0, -self::CLASS_SUFFIX_LENGTH);
+        }
+
+        if ($className === 'self') {
+            $className = $this->getMethodClassName($this->memberPtr);
         }
 
         return $className;
