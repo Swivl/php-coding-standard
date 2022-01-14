@@ -618,9 +618,13 @@ class DoctrineEntitySniff extends AbstractVariableSniff
      */
     protected function processORMAnnotation(string $name, array $attributes): void
     {
-        $this->validateAnnotationDeclaration($name, $attributes);
-
         $name = preg_replace('/^ORM\\\\/', '', $name);
+
+        if ($this->memberType !== null) {
+            $attributes = $this->inferTypedPropertyAnnotationDefaults($name, $attributes);
+        }
+
+        $this->validateAnnotationDeclaration($name, $attributes);
 
         $tokens = $this->phpcsFile->getTokens();
         $this->varName = ltrim($tokens[$this->memberPtr]['content'], '$');
@@ -644,6 +648,98 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                 $this->validateAnnotationRelationToMany($name, $attributes);
                 break;
         }
+    }
+
+    /**
+     * @param string $name
+     * @param array  $attributes
+     *
+     * @return array
+     *
+     * @see https://www.doctrine-project.org/2021/05/24/orm2.9.html
+     */
+    protected function inferTypedPropertyAnnotationDefaults(string $name, array $attributes): array
+    {
+        $type = ltrim($this->memberType, '?\\');
+
+        switch ($name) {
+            case 'Column':
+                $attributes = $this->inferTypedPropertyColumnAnnotationDefaults($attributes, $type);
+                break;
+
+            case 'ManyToOne':
+            case 'OneToOne':
+                $attributes = $this->inferTypedPropertyRelationToOneAnnotationDefaults($attributes, $type);
+                break;
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * @param array  $attributes
+     * @param string $type
+     *
+     * @return array
+     *
+     * @see \Doctrine\ORM\Mapping\ClassMetadataInfo::validateAndCompleteTypedFieldMapping()
+     */
+    protected function inferTypedPropertyColumnAnnotationDefaults(array $attributes, string $type): array
+    {
+        if (!isset($attributes['type'])) {
+            switch ($type) {
+                case 'DateInterval':
+                    $attributes['type'] = 'dateinterval';
+                    break;
+
+                case 'DateTime':
+                    $attributes['type'] = 'datetime';
+                    break;
+
+                case 'DateTimeImmutable':
+                    $attributes['type'] = 'datetime_immutable';
+                    break;
+
+                case 'array':
+                    $attributes['type'] = 'json';
+                    break;
+
+                case 'bool':
+                    $attributes['type'] = 'boolean';
+                    break;
+
+                case 'float':
+                    $attributes['type'] = 'float';
+                    break;
+
+                case 'int':
+                    $attributes['type'] = 'integer';
+                    break;
+
+                case 'string':
+                    $attributes['type'] = 'string';
+                    break;
+            }
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * @param array  $attributes
+     * @param string $type
+     *
+     * @return array
+     *
+     * @see \Doctrine\ORM\Mapping\ClassMetadataInfo::validateAndCompleteTypedAssociationMapping()
+     */
+    protected function inferTypedPropertyRelationToOneAnnotationDefaults(array $attributes, string $type): array
+    {
+        if (!isset($attributes['targetEntity'])) {
+            $attributes['targetEntity'] = $type . self::CLASS_SUFFIX;
+        }
+
+        return $attributes;
     }
 
     /**
