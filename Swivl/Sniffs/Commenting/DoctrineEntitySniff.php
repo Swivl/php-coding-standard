@@ -51,6 +51,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                 'scale' => 'integer',
                 'unique' => 'boolean',
                 'nullable' => 'boolean',
+                'enumType' => 'class',
                 'options' => 'array',
                 'columnDefinition' => 'string',
             ],
@@ -719,6 +720,12 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                 case 'string':
                     $attributes['type'] = 'string';
                     break;
+
+                default:
+                    if ($this->soundsLikeClass($type)) {
+                        $attributes['type'] = 'string';
+                        $attributes['enumType'] = $type . self::CLASS_SUFFIX;
+                    }
             }
         }
 
@@ -874,7 +881,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     break;
 
                 case 'class':
-                    $valid = (ucfirst($value) === $value || $value === 'self::class') && (
+                    $valid = ($this->soundsLikeClass($value) || $value === 'self::class') && (
                             (strpos($value, "\\") !== false)
                             || strpos($value, self::CLASS_SUFFIX, -self::CLASS_SUFFIX_LENGTH)
                         );
@@ -922,6 +929,10 @@ class DoctrineEntitySniff extends AbstractVariableSniff
 
         if (isset($attributes['type'])) {
             $columnType = $attributes['type'];
+
+            if (isset($attributes['enumType'])) {
+                $columnType = $this->getShortClassName($attributes['enumType']);
+            }
 
             if ($expectedType = $this->suggestType($columnType)) {
                 if (!$this->varType && !$this->memberType) {
@@ -1009,7 +1020,15 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             }
         }
 
-        return $this->mappingTypes[$type] ?? $this->calculateMappingTypeDynamically($type);
+        if (isset($this->mappingTypes[$type])) {
+            return $this->mappingTypes[$type];
+        }
+
+        if ($this->soundsLikeClass($type)) {
+            return $type;
+        }
+
+        return $this->calculateMappingTypeDynamically($type);
     }
 
     protected function calculateMappingTypeDynamically(string $columnType, string $fallbackToType = 'string'): string
@@ -1493,5 +1512,10 @@ class DoctrineEntitySniff extends AbstractVariableSniff
     private function getLongType(string $shortType): string
     {
         return self::SCALAR_TYPES[$shortType] ?? $shortType;
+    }
+
+    private function soundsLikeClass(string $type): bool
+    {
+        return ucfirst($type) === $type;
     }
 }
