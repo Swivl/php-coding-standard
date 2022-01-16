@@ -384,24 +384,29 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             }
 
             $attributeStart = $tokens[$attributeEnd]['attribute_opener'];
-            $parenthesisOpener = $phpcsFile->findNext(T_OPEN_PARENTHESIS, $attributeStart + 1, $attributeEnd);
-            $attributeName = trim($phpcsFile->getTokensAsString($attributeStart + 1, ($parenthesisOpener ?: $attributeEnd) - $attributeStart - 1));
-            $attributeParams = [];
 
-            if (strpos($attributeName, 'ORM') !== 0 || $attributeName === 'ORM\JoinTable') {
-                continue;
+            while ($attributeStart < $attributeEnd) {
+                $delimiterPtr = $phpcsFile->findNext([T_OPEN_PARENTHESIS, T_COMMA], $attributeStart + 1, $attributeEnd) ?: $attributeEnd;
+                $attributeName = trim($phpcsFile->getTokensAsString($attributeStart + 1, $delimiterPtr - $attributeStart - 1));
+                $attributeParams = '';
+
+                if ($tokens[$delimiterPtr]['code'] === T_OPEN_PARENTHESIS) {
+                    $parenthesisOpener = $delimiterPtr;
+                    $parenthesisCloser = $tokens[$parenthesisOpener]['parenthesis_closer'];
+                    $delimiterPtr = $parenthesisCloser;
+                    $attributeParams = $phpcsFile->getTokensAsString($parenthesisOpener + 1, $parenthesisCloser - $parenthesisOpener - 1);
+                }
+
+                if (strpos($attributeName, 'ORM') === 0) {
+                    $this->tagStart = $attributeStart;
+                    $this->tags[1][$attributeStart] = $attributeName;
+                    $this->tags[2][$attributeStart] = $attributeParams !== '' ? $this->parseNativeAttributeParams($attributeParams) : [];
+                }
+
+                $attributeStart = $phpcsFile->findNext(T_WHITESPACE, $delimiterPtr + 1, $attributeEnd, true) ?: $attributeEnd;
             }
 
-            if ($parenthesisOpener !== false) {
-                $parenthesisCloser = $tokens[$parenthesisOpener]['parenthesis_closer'];
-                $attributeParamsString = $phpcsFile->getTokensAsString($parenthesisOpener + 1, $parenthesisCloser - $parenthesisOpener - 1);
-
-                $this->tagStart = $attributeStart;
-                $attributeParams = $this->parseNativeAttributeParams($attributeParamsString);
-            }
-
-            $this->tags[1][$attributeStart] = $attributeName;
-            $this->tags[2][$attributeStart] = $attributeParams;
+            $attributeStart = $tokens[$attributeEnd]['attribute_opener'];
         }
     }
 
