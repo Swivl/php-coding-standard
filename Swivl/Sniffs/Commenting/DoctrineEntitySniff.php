@@ -245,6 +245,15 @@ class DoctrineEntitySniff extends AbstractVariableSniff
     protected $initializedMembers;
 
     /**
+     * A map of all constructor parameters in format ParamName=>array.
+     *
+     * @var array[]
+     *
+     * @see \PHP_CodeSniffer\Files\File::getMethodParameters()
+     */
+    protected $constructorParameters;
+
+    /**
      * @var array
      */
     protected $codingStandardsIgnoreErrors = [];
@@ -979,7 +988,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             $name,
             'setter',
             'set' . ucfirst($this->varName),
-            !$this->hasAnnotation('GeneratedValue'),
+            !$this->hasAnnotation('GeneratedValue') && !$this->isPropertySetViaConstructor($this->varName),
             '$this',
             $this->varName,
             $expectedType,
@@ -1265,6 +1274,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             $this->methods = null;
             $this->className = null;
             $this->initializedMembers = null;
+            $this->constructorParameters = null;
         }
     }
 
@@ -1281,6 +1291,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
 
         if ($this->initializedMembers === null) {
             $this->initializedMembers = [];
+            $this->constructorParameters = [];
 
             $tokens = $this->phpcsFile->getTokens();
             $methods = $this->getMethods();
@@ -1292,6 +1303,12 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                     $this->reportError($error, $this->memberPtr, 'ConstructorRequired');
                 }
             } else {
+                $constructorParameters = $this->phpcsFile->getMethodParameters($methodPtr);
+                $this->constructorParameters = array_combine(
+                    array_column($constructorParameters, 'name'),
+                    $constructorParameters
+                );
+
                 $scopeOpenPtr = $tokens[$methodPtr]['scope_opener'];
                 $scopeClosePtr = $tokens[$methodPtr]['scope_closer'];
                 $thisPtr = $scopeOpenPtr;
@@ -1365,9 +1382,24 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         $joinAttributes = $this->getAnnotationAttributes('JoinColumn');
         $nullable = (bool) ($joinAttributes['nullable'] ?? true);
 
-        $this->validateMethodDeclaration($name, 'getter', 'get' . ucfirst($this->varName), true, $type);
+        $this->validateMethodDeclaration(
+            $name,
+            'getter',
+            'get' . ucfirst($this->varName),
+            true,
+            $type
+        );
 
-        $this->validateMethodDeclaration($name, 'setter', 'set' . ucfirst($this->varName), true, '$this', $this->varName, $type, $nullable);
+        $this->validateMethodDeclaration(
+            $name,
+            'setter',
+            'set' . ucfirst($this->varName),
+            !$this->isPropertySetViaConstructor($this->varName),
+            '$this',
+            $this->varName,
+            $type,
+            $nullable
+        );
     }
 
     /**
@@ -1517,5 +1549,12 @@ class DoctrineEntitySniff extends AbstractVariableSniff
     private function soundsLikeClass(string $type): bool
     {
         return ucfirst($type) === $type;
+    }
+
+    private function isPropertySetViaConstructor(string $name): bool
+    {
+        $members = $this->getInitializedMembers(false);
+
+        return isset($members[$name], $this->constructorParameters[$members[$name]]);
     }
 }
