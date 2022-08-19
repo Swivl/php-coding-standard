@@ -158,9 +158,13 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         'boolean' => 'boolean',
         'decimal' => 'float',
         'date' => 'DateTime',
+        'date_immutable' => 'DateTimeImmutable',
         'time' => 'DateTime',
+        'time_immutable' => 'DateTimeImmutable',
         'datetime' => 'DateTime',
+        'datetime_immutable' => 'DateTimeImmutable',
         'datetimetz' => 'DateTime',
+        'datetimetz_immutable' => 'DateTimeImmutable',
         'text' => 'string',
         'object' => '',
         'array' => 'array',
@@ -1538,6 +1542,8 @@ class DoctrineEntitySniff extends AbstractVariableSniff
 
         if ($expectedType === 'DateTime') {
             $expectedType .= '|DateTimeInterface|DateTimeImmutable';
+        } elseif ($expectedType === 'DateTimeImmutable') {
+            $expectedType .= '|DateTimeInterface';
         }
 
         $expectedTypes = array_map([$this, 'getLongType'], explode('|', $expectedType));
