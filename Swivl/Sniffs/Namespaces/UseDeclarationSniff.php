@@ -44,17 +44,38 @@ class UseDeclarationSniff implements Sniff
         $lastUsePtr = null;
 
         while ($usePtr = $phpcsFile->findNext([T_USE, T_CLASS, T_INTERFACE, T_TRAIT], $usePtr + 1)) {
-            if ($tokens[$usePtr]['code'] !== T_USE) {
+            $token = $tokens[$usePtr];
+
+            if ($token['code'] !== T_USE) {
                 break;
+            }
+
+            $tokenLevel = $token['level'];
+            $shouldBeMinSpaces = $tokenLevel * 4;
+
+            if ($token['column'] > $shouldBeMinSpaces + 1) {
+                $phpcsFile->addFixableError(sprintf(
+                    'Line indented incorrectly; expected %d spaces, found %d',
+                    $shouldBeMinSpaces,
+                    $token['column'] - 1,
+                ), $usePtr, 'IndentIncorrect');
+
+                $phpcsFile->fixer->beginChangeset();
+                $phpcsFile->fixer
+                    ->replaceToken($usePtr - 1, $shouldBeMinSpaces > 0 ? str_repeat(' ', $shouldBeMinSpaces) : "\n");
+                $phpcsFile->fixer->endChangeset();
             }
 
             if ($nsStartPtr = $phpcsFile->findNext([T_NS_SEPARATOR, T_STRING], $usePtr + 1)) {
                 if ($nsEndPtr = $phpcsFile->findNext([T_NS_SEPARATOR, T_STRING], $nsStartPtr + 1, null, true)) {
                     $namespace = $phpcsFile->getTokensAsString($nsStartPtr, $nsEndPtr - $nsStartPtr);
-                    $uses[$nsStartPtr] = $namespace;
+                    $uses[$tokenLevel][$nsStartPtr] = $namespace;
 
                     if ($lastUsePtr !== null) {
-                        $padding = $tokens[$usePtr]['line'] - $tokens[$lastUsePtr]['line'];
+                        $padding = $tokenLevel === $tokens[$lastUsePtr]['level']
+                            ? $token['line'] - $tokens[$lastUsePtr]['line']
+                            : 1;
+
                         if ($padding === 0) {
                             $error = 'Each USE statement must be on a line by itself';
                             $phpcsFile->addError($error, $usePtr, 'SameLine');
@@ -68,7 +89,7 @@ class UseDeclarationSniff implements Sniff
                                         break;
                                     }
 
-                                    if ($tokens[$i]['line'] < $tokens[$usePtr]['line']) {
+                                    if ($tokens[$i]['line'] < $token['line']) {
                                         $phpcsFile->fixer->replaceToken($i, '');
                                     }
                                 }
@@ -83,20 +104,24 @@ class UseDeclarationSniff implements Sniff
             }
         }
 
-        $orderedUses = array_values($uses);
-        sort($orderedUses, SORT_STRING | SORT_FLAG_CASE);
+
         $replacements = [];
 
-        foreach ($uses as $ptr => $use) {
-            $orderedUse = current($orderedUses);
-            next($orderedUses);
+        foreach ($uses as $usesList) {
+            $orderedUses = array_values($usesList);
+            sort($orderedUses, SORT_STRING | SORT_FLAG_CASE);
 
-            if ($orderedUse !== $use) {
-                $error = 'USE statements must be ordered; here should be %s';
-                $data = [$orderedUse];
+            foreach ($usesList as $ptr => $use) {
+                $orderedUse = current($orderedUses);
+                next($orderedUses);
 
-                if ($phpcsFile->addFixableError($error, $ptr, 'Unordered', $data)) {
-                    $replacements[$ptr] = $orderedUse;
+                if ($orderedUse !== $use) {
+                    $error = 'USE statements must be ordered; here should be %s';
+                    $data = [$orderedUse];
+
+                    if ($phpcsFile->addFixableError($error, $ptr, 'Unordered', $data)) {
+                        $replacements[$ptr] = $orderedUse;
+                    }
                 }
             }
         }
