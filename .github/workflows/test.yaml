@@ -4,39 +4,36 @@ on:
     push:
     pull_request:
 
-env:
-    ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-
 jobs:
     test:
         name: PHP ${{ matrix.php-version }} + ${{ matrix.dependencies }} + ${{ matrix.variant }}
 
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-22.04
 
         continue-on-error: ${{ matrix.allowed-to-fail }}
 
         strategy:
             matrix:
                 php-version:
-                    - '7.4'
                     - '8.0'
                     - '8.1'
+                    - '8.2'
                 dependencies: [highest]
                 allowed-to-fail: [false]
                 variant: [normal]
                 include:
-                    - php-version: '8.0'
+                    - php-version: '8.1'
                       dependencies: highest
                       allowed-to-fail: true
                       variant: 'squizlabs/php_codesniffer:"dev-master"'
-                    - php-version: '8.1'
+                    - php-version: '8.2'
                       dependencies: highest
                       allowed-to-fail: true
                       variant: 'squizlabs/php_codesniffer:"dev-master"'
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v2
+              uses: actions/checkout@v3
 
             - name: Install PHP with extensions
               uses: shivammathur/setup-php@v2
@@ -49,7 +46,7 @@ jobs:
               run: composer require ${{ matrix.variant }} --no-update
 
             - name: "Install Composer dependencies (${{ matrix.dependencies }})"
-              uses: "ramsey/composer-install@v1"
+              uses: "ramsey/composer-install@v2"
               with:
                   dependency-versions: "${{ matrix.dependencies }}"
                   composer-options: "--prefer-dist --prefer-stable"
