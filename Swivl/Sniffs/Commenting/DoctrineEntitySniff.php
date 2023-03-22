@@ -1566,6 +1566,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
     {
         $members = $this->getInitializedMembers(false);
 
-        return isset($members[$name], $this->constructorParameters[$members[$name]]);
+        return isset($members[$name], $this->constructorParameters[$members[$name]])
+            || (isset($members[$name]) && $members[$name] !== 'null');
     }
 }
