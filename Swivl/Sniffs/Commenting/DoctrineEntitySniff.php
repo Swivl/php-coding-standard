@@ -36,6 +36,13 @@ class DoctrineEntitySniff extends AbstractVariableSniff
     public $useDynamicalCalculationForEnumColumnType = false;
 
     /**
+     * Custom Doctrine mapping types.
+     *
+     * @var array<string, string>
+     */
+    public $customMappingTypes = [];
+
+    /**
      * Doctrine annotations reference.
      *
      * @var array
@@ -1036,6 +1043,10 @@ class DoctrineEntitySniff extends AbstractVariableSniff
             if (substr($type, -8, 8) === '_mutable') {
                 $type = substr($type, 0, -8);
             }
+        }
+
+        if (isset($this->customMappingTypes[$type])) {
+            return $this->customMappingTypes[$type];
         }
 
         if (isset($this->mappingTypes[$type])) {
