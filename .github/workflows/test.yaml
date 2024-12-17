@@ -8,7 +8,7 @@ jobs:
     test:
         name: PHP ${{ matrix.php-version }} + ${{ matrix.dependencies }} + ${{ matrix.variant }}
 
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-24.04
 
         continue-on-error: ${{ matrix.allowed-to-fail }}
 
@@ -19,6 +19,7 @@ jobs:
                     - '8.1'
                     - '8.2'
                     - '8.3'
+                    - '8.4'
                 dependencies: [highest]
                 allowed-to-fail: [false]
                 variant: [normal]
@@ -28,6 +29,10 @@ jobs:
                       allowed-to-fail: true
                       variant: 'squizlabs/php_codesniffer:"dev-master"'
                     - php-version: '8.3'
+                      dependencies: highest
+                      allowed-to-fail: true
+                      variant: 'squizlabs/php_codesniffer:"dev-master"'
+                    - php-version: '8.4'
                       dependencies: highest
                       allowed-to-fail: true
                       variant: 'squizlabs/php_codesniffer:"dev-master"'
