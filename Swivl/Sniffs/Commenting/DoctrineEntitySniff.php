@@ -1143,9 +1143,9 @@ class DoctrineEntitySniff extends AbstractVariableSniff
         string $methodType,
         string $methodName,
         bool $methodRequired,
-        string $returnType = null,
-        string $argumentName = null,
-        string $argumentType = null,
+        ?string $returnType = null,
+        ?string $argumentName = null,
+        ?string $argumentType = null,
         bool $argumentNullable = false
     ): void
     {
