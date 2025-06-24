@@ -83,7 +83,7 @@ class DoctrineEntitySniff extends AbstractVariableSniff
                 'referencedColumnName' => 'string',
                 'unique' => 'boolean',
                 'nullable' => 'boolean',
-                'onDelete' => ['SET NULL', 'CASCADE'],
+                'onDelete' => ['RESTRICT', 'CASCADE', 'SET NULL'],
                 'columnDefinition' => 'string',
             ],
         ],
