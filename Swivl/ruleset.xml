@@ -69,8 +69,6 @@
         </properties>
     </rule>
 
-    <rule ref="Generic.Functions.CallTimePassByReference"/>
-
     <rule ref="Generic.Metrics.NestingLevel">
         <properties>
             <property name="nestingLevel" value="6"/>
@@ -271,7 +269,6 @@
             <property name="spacingAfterLast" value="0"/>
         </properties>
     </rule>
-    <rule ref="Squiz.WhiteSpace.LanguageConstructSpacing"/>
     <rule ref="Squiz.WhiteSpace.LogicalOperatorSpacing"/>
     <rule ref="Squiz.WhiteSpace.MemberVarSpacing">
         <properties>
