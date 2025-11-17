@@ -4,6 +4,7 @@ namespace Swivl\Sniffs\Namespaces;
 
 use PHP_CodeSniffer\Files\File;
 use PHP_CodeSniffer\Sniffs\Sniff;
+use PHP_CodeSniffer\Util\Tokens;
 
 /**
  * UseDeclarationSniff
@@ -12,13 +13,6 @@ use PHP_CodeSniffer\Sniffs\Sniff;
  */
 class UseDeclarationSniff implements Sniff
 {
-    /**
-     * A list of tokenizers this sniff supports.
-     *
-     * @var array
-     */
-    public $supportedTokenizers = ['PHP'];
-
     /**
      * Returns an array of tokens this test wants to listen for.
      *
@@ -43,6 +37,8 @@ class UseDeclarationSniff implements Sniff
         $usePtr = $stackPtr;
         $lastUsePtr = null;
 
+        $nameTokens = Tokens::NAME_TOKENS + [T_NS_SEPARATOR => T_NS_SEPARATOR];
+
         while ($usePtr = $phpcsFile->findNext([T_USE, T_CLASS, T_INTERFACE, T_TRAIT], $usePtr + 1)) {
             $token = $tokens[$usePtr];
 
@@ -66,8 +62,8 @@ class UseDeclarationSniff implements Sniff
                 $phpcsFile->fixer->endChangeset();
             }
 
-            if ($nsStartPtr = $phpcsFile->findNext([T_NS_SEPARATOR, T_STRING], $usePtr + 1)) {
-                if ($nsEndPtr = $phpcsFile->findNext([T_NS_SEPARATOR, T_STRING], $nsStartPtr + 1, null, true)) {
+            if ($nsStartPtr = $phpcsFile->findNext($nameTokens, $usePtr + 1)) {
+                if ($nsEndPtr = $phpcsFile->findNext($nameTokens, $nsStartPtr + 1, null, true)) {
                     $namespace = $phpcsFile->getTokensAsString($nsStartPtr, $nsEndPtr - $nsStartPtr);
                     $uses[$tokenLevel][$nsStartPtr] = $namespace;
 
