@@ -27,15 +27,15 @@ jobs:
                     - php-version: '8.2'
                       dependencies: highest
                       allowed-to-fail: true
-                      variant: 'squizlabs/php_codesniffer:"dev-master"'
+                      variant: 'squizlabs/php_codesniffer:"4.x-dev"'
                     - php-version: '8.3'
                       dependencies: highest
                       allowed-to-fail: true
-                      variant: 'squizlabs/php_codesniffer:"dev-master"'
+                      variant: 'squizlabs/php_codesniffer:"4.x-dev"'
                     - php-version: '8.4'
                       dependencies: highest
                       allowed-to-fail: true
-                      variant: 'squizlabs/php_codesniffer:"dev-master"'
+                      variant: 'squizlabs/php_codesniffer:"4.x-dev"'
 
         steps:
             - name: Checkout
@@ -58,6 +58,7 @@ jobs:
                   composer-options: "--prefer-dist --prefer-stable"
 
             - name: Validate composer
+              if: matrix.variant == 'normal'
               run: composer validate --strict --no-check-lock
 
             - name: Check Code Style

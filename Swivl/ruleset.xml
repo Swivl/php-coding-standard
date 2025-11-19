@@ -69,8 +69,6 @@
         </properties>
     </rule>
 
-    <rule ref="Generic.Functions.CallTimePassByReference"/>
-
     <rule ref="Generic.Metrics.NestingLevel">
         <properties>
             <property name="nestingLevel" value="6"/>
@@ -174,6 +172,7 @@
     <rule ref="Swivl.Commenting.FunctionComment.TypeHintMissing">
         <severity>0</severity>
     </rule>
+
     <rule ref="Squiz.Commenting.FunctionCommentThrowTag"/>
     <rule ref="Squiz.Commenting.InlineComment"/>
     <rule ref="Squiz.Commenting.InlineComment.DocBlock">
@@ -191,6 +190,12 @@
         <severity>0</severity>
     </rule>
     <rule ref="Squiz.Commenting.VariableComment.TagNotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.VariableComment.CodingStandardsIgnoreErrorTagNotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.VariableComment.Phpstan-varTagNotAllowed">
         <severity>0</severity>
     </rule>
 
@@ -271,7 +276,6 @@
             <property name="spacingAfterLast" value="0"/>
         </properties>
     </rule>
-    <rule ref="Squiz.WhiteSpace.LanguageConstructSpacing"/>
     <rule ref="Squiz.WhiteSpace.LogicalOperatorSpacing"/>
     <rule ref="Squiz.WhiteSpace.MemberVarSpacing">
         <properties>

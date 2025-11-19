@@ -15,13 +15,6 @@ use PHP_CodeSniffer\Sniffs\Sniff;
 class DiscourageFitzinatorSniff implements Sniff
 {
     /**
-     * A list of tokenizers this sniff supports.
-     *
-     * @var array
-     */
-    public $supportedTokenizers = ['PHP', 'JS', 'CSS'];
-
-    /**
      * Returns an array of tokens this test wants to listen for.
      *
      * @return array

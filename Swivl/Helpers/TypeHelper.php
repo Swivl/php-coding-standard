@@ -13,8 +13,6 @@ class TypeHelper
         'traversable' => true,
     ];
 
-    private const SHORT_SCALAR_TYPES = ['int', 'bool'];
-
     public static function isTypeTraversable(string $mixedType): bool
     {
         foreach (explode('|', self::normalizeType($mixedType)) as $type) {
@@ -31,13 +29,6 @@ class TypeHelper
         }
 
         return false;
-    }
-
-    public static function allowShortScalarTypes(): void
-    {
-        if ($missedScalarTypes = array_diff(self::SHORT_SCALAR_TYPES, Common::$allowedTypes)) {
-            Common::$allowedTypes = array_merge(Common::$allowedTypes, $missedScalarTypes);
-        }
     }
 
     public static function normalizeType(string $mixedType): string
